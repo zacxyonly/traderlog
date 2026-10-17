@@ -32,7 +32,7 @@ class AppSettings {
   ];
 
   AppSettings({
-    this.traderName = 'Zacxy',
+    this.traderName = 'TraderLog',
     this.languageCode = 'id',
     this.accountCurrency = 'USD',
     this.exchangeCurrency = 'IDR',
@@ -137,7 +137,7 @@ class AppSettings {
     return AppSettings(
       traderName: map['trader_name']?.trim().isNotEmpty == true
           ? map['trader_name']!
-          : 'Zacxy',
+          : 'TraderLog',
       languageCode: map['language_code'] ?? 'id',
       accountCurrency: (map['account_currency']?.trim().isNotEmpty == true)
           ? map['account_currency']!

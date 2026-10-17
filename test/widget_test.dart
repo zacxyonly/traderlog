@@ -174,7 +174,7 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       final settings = AppSettings();
       expect(settings.initialCapital, 1000.0);
       expect(settings.usdToIdrRate, 17998.0);
-      expect(settings.traderName, 'Zacxy');
+      expect(settings.traderName, 'TraderLog');
       expect(settings.languageCode, 'id');
       expect(settings.accountCurrency, 'USD');
       expect(settings.exchangeCurrency, 'IDR');
@@ -231,8 +231,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
     test('Translates keys accurately in ID and EN', () {
       expect(AppStrings.tr('nav_journal', 'id'), 'Jurnal');
       expect(AppStrings.tr('nav_journal', 'en'), 'Journal');
-      expect(AppStrings.tr('cat_profile', 'id'), 'Profil');
-      expect(AppStrings.tr('cat_profile', 'en'), 'Profile');
+      expect(AppStrings.tr('cat_profile', 'id'), 'Modal & Kurs');
+      expect(AppStrings.tr('cat_profile', 'en'), 'Capital & FX');
       expect(AppStrings.tr('cat_appearance', 'id'), 'Tampilan');
       expect(AppStrings.tr('cat_appearance', 'en'), 'Display');
       expect(AppStrings.tr('new_trade', 'id'), 'Catat Trade Baru');

@@ -33,7 +33,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final summary = provider.getSummaryStats(_selectedPeriod);
 
     final lang = provider.settings.languageCode;
-    final currency = provider.settings.accountCurrency;
+    final currency = provider.activeAccount.currency;
 
     return Scaffold(
       body: SafeArea(

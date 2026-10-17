@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
@@ -176,7 +177,26 @@ class TradeProvider extends ChangeNotifier {
     }
   }
 
+  void _safeDeleteFile(String? path) {
+    if (path != null && path.trim().isNotEmpty) {
+      try {
+        final f = File(path);
+        if (f.existsSync()) {
+          f.deleteSync();
+        }
+      } catch (e) {
+        debugPrint('Failed to delete file at $path: $e');
+      }
+    }
+  }
+
   Future<void> deleteTrade(String id) async {
+    final idx = _trades.indexWhere((t) => t.id == id);
+    if (idx != -1) {
+      final t = _trades[idx];
+      _safeDeleteFile(t.imagePath);
+      _safeDeleteFile(t.imagePathAfter);
+    }
     await _db.deleteTrade(id);
     _trades.removeWhere((t) => t.id == id);
     notifyListeners();
@@ -186,6 +206,8 @@ class TradeProvider extends ChangeNotifier {
     final activeId = _settings.activeAccountId;
     // Delete trades only for the active account
     for (final t in trades) {
+      _safeDeleteFile(t.imagePath);
+      _safeDeleteFile(t.imagePathAfter);
       await _db.deleteTrade(t.id);
     }
     _trades.removeWhere((t) => (t.accountId ?? 'acc_real') == activeId);
@@ -234,7 +256,15 @@ class TradeProvider extends ChangeNotifier {
 
   Future<void> switchAccount(String accountId) async {
     if (_settings.activeAccountId != accountId) {
-      await updateSettings(_settings.copyWith(activeAccountId: accountId));
+      final acc = _settings.accounts.firstWhere(
+        (a) => a.id == accountId,
+        orElse: () => _settings.accounts.first,
+      );
+      await updateSettings(_settings.copyWith(
+        activeAccountId: accountId,
+        accountCurrency: acc.currency,
+      ));
+      await syncExchangeRate(notify: false);
     }
   }
 
@@ -264,6 +294,8 @@ class TradeProvider extends ChangeNotifier {
         : _settings.activeAccountId;
 
     for (final t in _trades.where((t) => (t.accountId ?? 'acc_real') == accountId).toList()) {
+      _safeDeleteFile(t.imagePath);
+      _safeDeleteFile(t.imagePathAfter);
       await _db.deleteTrade(t.id);
     }
     _trades.removeWhere((t) => (t.accountId ?? 'acc_real') == accountId);
@@ -336,7 +368,7 @@ class TradeProvider extends ChangeNotifier {
 
     try {
       final rate = await CurrencyService.fetchExchangeRate(
-        baseCurrency: _settings.accountCurrency,
+        baseCurrency: activeAccount.currency,
         targetCurrency: _settings.exchangeCurrency,
       );
       if (rate != null && rate > 0) {
@@ -382,7 +414,12 @@ class TradeProvider extends ChangeNotifier {
     return totalProfitLoss / activeAccount.initialCapital;
   }
 
-  double get currentEquityIDR => currentEquity * _settings.usdToIdrRate;
+  double get currentEquityIDR {
+    if (activeAccount.currency == _settings.exchangeCurrency) {
+      return currentEquity;
+    }
+    return currentEquity * _settings.usdToIdrRate;
+  }
 
   /// Chronological equity history points for chart sparkline & equity curve
   List<double> get equityHistory {

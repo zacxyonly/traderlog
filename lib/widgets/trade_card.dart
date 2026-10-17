@@ -29,7 +29,7 @@ class TradeCard extends StatelessWidget {
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
-    final currency = context.watch<TradeProvider>().settings.accountCurrency;
+    final currency = context.watch<TradeProvider>().activeAccount.currency;
 
     Color statusColor;
     Color statusBgColor;

@@ -22,7 +22,7 @@ class AccountSwitcherSheet extends StatelessWidget {
     final nameCtrl = TextEditingController();
     final capCtrl = TextEditingController(text: '1000');
     String type = 'real';
-    final activeCurr = context.read<TradeProvider>().settings.accountCurrency;
+    final activeCurr = context.read<TradeProvider>().activeAccount.currency;
     String currency = activeCurr;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -352,7 +352,7 @@ class AccountSwitcherSheet extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'Modal: ${Formatters.formatAmount(acc.initialCapital, currency: acc.currency)}',
+                              '${AppStrings.tr("account_capital", lang)}: ${Formatters.formatAmount(acc.initialCapital, currency: acc.currency)}',
                               style: TextStyle(fontSize: 12, color: mutedColor),
                             ),
                           ],

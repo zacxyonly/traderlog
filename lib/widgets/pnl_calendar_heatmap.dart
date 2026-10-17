@@ -221,7 +221,7 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
 
     final provider = context.watch<TradeProvider>();
     final lang = provider.settings.languageCode;
-    final currency = provider.settings.accountCurrency;
+    final currency = provider.activeAccount.currency;
 
     final monthName = DateFormat('MMMM yyyy', lang == 'en' ? 'en_US' : 'id_ID').format(_currentMonth);
 

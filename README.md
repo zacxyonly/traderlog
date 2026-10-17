@@ -76,9 +76,9 @@ Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQ
 ┌─────────────────────────────────┐   ┌─────────────────────────────────┐   ┌─────────────────────────────────┐
 │           JURNAL TRADE          │   │        RINGKASAN PERFORMA       │   │        PENGATURAN (ATUR)        │
 ├─────────────────────────────────┤   ├─────────────────────────────────┤   ├─────────────────────────────────┤
-│ [ Akun Real Utama ▾ ]           │   │ Periode: [Semua] [30 Hari] [7h] │   │ [Profil] [Akun] [Keamanan] ...  │
+│ [ Akun Real Utama ▾ ]           │   │ Periode: [Semua] [30 Hari] [7h] │   │ [Modal & Kurs] [Akun] [Kemanan] │
 │ [ Total Akun ]     $1,450.00    │   │                                 │   │                                 │
-│ by Zacxy       Rp 26.097.100    │   │  Win Rate: 68%   PF: 2.14       │   │ Multi-Akun Portofolio:          │
+│ TraderLog      Rp 26.097.100    │   │  Win Rate: 68%   PF: 2.14       │   │ Multi-Akun Portofolio:          │
 │                                 │   │  R:R Aktual: 1:2.40  DD: -4.8%  │   │  [•] Akun Real Utama (Active)   │
 │ 🔍 Cari symbol, setup, emosi... │   │                                 │   │  [ ] Akun Latihan Demo          │
 │ [Semua] [WIN] [LOSE] [BE]       │   │ ── Grafik Equity Curve (Scrub) ─│   │  [ ] Evaluasi Prop Firm         │

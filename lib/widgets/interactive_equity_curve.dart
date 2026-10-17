@@ -1,7 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/trade.dart';
+import '../providers/trade_provider.dart';
+import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 
 class InteractiveEquityCurve extends StatefulWidget {
@@ -36,12 +39,16 @@ class _InteractiveEquityCurveState extends State<InteractiveEquityCurve> {
     final softColor = isDark ? AppColors.darkSoft : AppColors.lightSoft;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
+    final lang = context.watch<TradeProvider>().settings.languageCode;
+
     if (points.length < 2) {
       return SizedBox(
         height: widget.height,
         child: Center(
           child: Text(
-            'Kurva akan terbentuk setelah Anda mencatat trade.',
+            lang == 'en'
+                ? 'Curve will form as trades are logged.'
+                : 'Kurva akan terbentuk setelah Anda mencatat trade.',
             style: TextStyle(color: mutedColor, fontSize: 12),
           ),
         ),
@@ -62,7 +69,7 @@ class _InteractiveEquityCurveState extends State<InteractiveEquityCurve> {
 
     String tooltipSubtitle = '';
     if (activeIdx == 0) {
-      tooltipSubtitle = 'Modal Awal';
+      tooltipSubtitle = AppStrings.tr('initial_capital', lang);
     } else if (activeIdx - 1 < widget.trades.length) {
       final t = widget.trades[activeIdx - 1];
       tooltipSubtitle = 'Trade #$activeIdx: ${t.sym} (${Formatters.formatAmountSigned(t.pl, currency: widget.currency)})';

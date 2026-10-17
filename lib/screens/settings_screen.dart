@@ -45,7 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'code': 'en', 'name': '🇬🇧 English'},
   ];
 
-  final _nameController = TextEditingController();
   final _capController = TextEditingController();
   final _fxController = TextEditingController();
   final _newSymbolController = TextEditingController();
@@ -73,7 +72,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final provider = context.read<TradeProvider>();
     final settings = provider.settings;
-    _nameController.text = settings.traderName;
     _capController.text = provider.activeAccount.initialCapital.toStringAsFixed(0);
     _fxController.text = _formatRate(settings.usdToIdrRate);
   }
@@ -94,7 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'rate_synced',
               lang,
               params: {
-                'base': provider.settings.accountCurrency,
+                'base': provider.activeAccount.currency,
                 'target': provider.settings.exchangeCurrency,
                 'rate': _formatRate(newRate),
               },
@@ -119,17 +117,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose();
     _capController.dispose();
     _fxController.dispose();
     _newSymbolController.dispose();
     super.dispose();
-  }
-
-  void _saveTraderName() {
-    final name = _nameController.text.trim();
-    final provider = context.read<TradeProvider>();
-    provider.updateTraderName(name.isNotEmpty ? name : 'Trader');
   }
 
   void _saveCapital() {
@@ -724,7 +715,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final activeAcc = tradeProvider.activeAccount;
 
     final categories = [
-      {'icon': Icons.person_outline_rounded, 'label': AppStrings.tr('cat_profile', lang)},
+      {'icon': Icons.tune_rounded, 'label': AppStrings.tr('cat_profile', lang)},
       {'icon': Icons.account_balance_wallet_outlined, 'label': AppStrings.tr('cat_accounts', lang)},
       {'icon': Icons.lock_outline_rounded, 'label': AppStrings.tr('cat_security', lang)},
       {'icon': Icons.palette_outlined, 'label': AppStrings.tr('cat_appearance', lang)},
@@ -800,40 +791,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // Category 0: Profil & Akun
+            // Category 0: Modal & Kurs
             if (_selectedCategoryIndex == 0)
               _buildCard(
                 cardColor,
                 borderColor,
                 isDark,
                 [
-                  _buildLabel(AppStrings.tr('trader_name', lang), mutedColor),
-                  TextField(
-                    controller: _nameController,
-                    textCapitalization: TextCapitalization.words,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                    decoration: _inputDecoration(
-                      softColor,
-                      borderColor,
-                      AppStrings.tr('trader_name_hint', lang),
-                    ),
-                    onChanged: (_) => _saveTraderName(),
-                    onSubmitted: (_) => _saveTraderName(),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 14),
-                    child: Text(
-                      lang == 'en'
-                          ? 'This name will be displayed in the hero chart header ("by ${settings.traderName}").'
-                          : 'Nama ini akan ditampilkan pada header kartu grafik utama ("by ${settings.traderName}").',
-                      style: TextStyle(fontSize: 12, color: mutedColor),
-                    ),
-                  ),
-
                   // Currency Akun (Dropdown)
                   _buildLabel(
                     AppStrings.tr('account_currency', lang),
@@ -939,7 +903,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             lang,
                             params: {
                               'target': settings.exchangeCurrency,
-                              'base': settings.accountCurrency,
+                              'base': activeAcc.currency,
                             },
                           ),
                           mutedColor,

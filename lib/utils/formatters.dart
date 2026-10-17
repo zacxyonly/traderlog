@@ -92,19 +92,21 @@ class Formatters {
     return '${pct.toStringAsFixed(2)}%';
   }
 
-  /// Formats date and time: 17 Okt 2026, 18:30
-  static String formatDateTime(DateTime dateTime) {
+  /// Formats date and time: 17 Okt 2026, 18:30 (or 17 Oct 2026, 18:30)
+  static String formatDateTime(DateTime dateTime, {String? locale}) {
     try {
-      return _dateTimeFormat.format(dateTime);
+      final loc = locale == 'en' ? 'en_US' : 'id_ID';
+      return DateFormat('dd MMM yyyy, HH:mm', loc).format(dateTime);
     } catch (_) {
       return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
     }
   }
 
-  /// Formats month and year: Oktober 2026
-  static String formatMonthYear(DateTime dateTime) {
+  /// Formats month and year: Oktober 2026 (or October 2026)
+  static String formatMonthYear(DateTime dateTime, {String? locale}) {
     try {
-      return _monthYearFormat.format(dateTime);
+      final loc = locale == 'en' ? 'en_US' : 'id_ID';
+      return DateFormat('MMMM yyyy', loc).format(dateTime);
     } catch (_) {
       return DateFormat('MMMM yyyy').format(dateTime);
     }

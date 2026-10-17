@@ -60,17 +60,17 @@ class _JournalScreenState extends State<JournalScreen> {
       filter: _selectedFilter,
     );
 
+    final lang = provider.settings.languageCode;
+
     // Group filtered trades by Month Year
     final Map<String, List<Trade>> monthlyTrades = {};
     final Map<String, double> monthlyTotalPL = {};
 
     for (final t in filteredTrades) {
-      final monthKey = Formatters.formatMonthYear(t.date);
+      final monthKey = Formatters.formatMonthYear(t.date, locale: lang);
       monthlyTrades.putIfAbsent(monthKey, () => []).add(t);
       monthlyTotalPL[monthKey] = (monthlyTotalPL[monthKey] ?? 0.0) + t.pl;
     }
-
-    final lang = provider.settings.languageCode;
 
     return Scaffold(
       body: SafeArea(
@@ -242,7 +242,7 @@ class _JournalScreenState extends State<JournalScreen> {
                             Text(
                               Formatters.formatAmountSigned(
                                 totalMonthPL,
-                                currency: provider.settings.accountCurrency,
+                                currency: provider.activeAccount.currency,
                               ),
                               style: TextStyle(
                                 fontSize: 13,

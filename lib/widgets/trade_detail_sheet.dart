@@ -45,9 +45,11 @@ class TradeDetailSheet extends StatelessWidget {
   }
 
   void _shareTrade(BuildContext context) {
-    final currency = context.read<TradeProvider>().settings.accountCurrency;
+    final provider = context.read<TradeProvider>();
+    provider.setSystemPickerActive(true);
+    final currency = provider.activeAccount.currency;
     final emoji = trade.pl > 0 ? '🟢' : (trade.pl < 0 ? '🔴' : '⚪');
-    final formattedDate = Formatters.formatDateTime(trade.date);
+    final formattedDate = Formatters.formatDateTime(trade.date, locale: provider.settings.languageCode);
 
     final sb = StringBuffer();
     sb.writeln('$emoji TRADERLOG - TRADE #$tradeIndex');
@@ -84,6 +86,9 @@ class TradeDetailSheet extends StatelessWidget {
 
     final text = sb.toString();
     Share.share(text);
+    Future.delayed(const Duration(milliseconds: 600), () {
+      provider.setSystemPickerActive(false);
+    });
   }
 
   void _duplicateTrade(BuildContext context) {
@@ -143,7 +148,7 @@ class TradeDetailSheet extends StatelessWidget {
     final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
 
     final provider = context.watch<TradeProvider>();
-    final currency = provider.settings.accountCurrency;
+    final currency = provider.activeAccount.currency;
     final lang = provider.settings.languageCode;
 
     final isWin = trade.result == TradeResult.win;

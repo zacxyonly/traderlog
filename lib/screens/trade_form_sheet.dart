@@ -319,6 +319,19 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     return '-';
   }
 
+  void _safeDeleteFile(String? path) {
+    if (path != null && path.trim().isNotEmpty) {
+      try {
+        final f = File(path);
+        if (f.existsSync()) {
+          f.deleteSync();
+        }
+      } catch (e) {
+        debugPrint('Failed to delete file at $path: $e');
+      }
+    }
+  }
+
   Future<void> _pickImage(ImageSource source, {bool isAfter = false}) async {
     final provider = context.read<TradeProvider>();
     provider.setSystemPickerActive(true);
@@ -431,6 +444,14 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     );
 
     if (widget.tradeToEdit != null) {
+      if (widget.tradeToEdit!.imagePath != null &&
+          widget.tradeToEdit!.imagePath != _imagePath) {
+        _safeDeleteFile(widget.tradeToEdit!.imagePath);
+      }
+      if (widget.tradeToEdit!.imagePathAfter != null &&
+          widget.tradeToEdit!.imagePathAfter != _imagePathAfter) {
+        _safeDeleteFile(widget.tradeToEdit!.imagePathAfter);
+      }
       provider.updateTrade(trade);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppStrings.tr('trade_updated', lang))),
@@ -929,7 +950,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                                   const Icon(Icons.shield_outlined, size: 14, color: AppColors.loseText),
                                   const SizedBox(width: 4),
                                   Text(
-                                    '${AppStrings.tr('risk_planned', lang)}: ${Formatters.formatAmountSigned(_plannedRisk!.pnl, currency: provider.settings.accountCurrency)} (${riskPct.toStringAsFixed(1)}%)',
+                                    '${AppStrings.tr('risk_planned', lang)}: ${Formatters.formatAmountSigned(_plannedRisk!.pnl, currency: provider.activeAccount.currency)} (${riskPct.toStringAsFixed(1)}%)',
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
@@ -944,7 +965,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                                   const Icon(Icons.flag_outlined, size: 14, color: AppColors.winText),
                                   const SizedBox(width: 4),
                                   Text(
-                                    '${AppStrings.tr('reward_planned', lang)}: ${Formatters.formatAmountSigned(_plannedReward!.pnl, currency: provider.settings.accountCurrency)}',
+                                    '${AppStrings.tr('reward_planned', lang)}: ${Formatters.formatAmountSigned(_plannedReward!.pnl, currency: provider.activeAccount.currency)}',
                                     style: const TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
@@ -980,7 +1001,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     AppStrings.tr(
                       'pl_label',
                       lang,
-                      params: {'curr': provider.settings.accountCurrency},
+                      params: {'curr': provider.activeAccount.currency},
                     ),
                     mutedColor,
                   ),

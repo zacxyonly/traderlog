@@ -23,9 +23,7 @@ class HeroSummaryCard extends StatelessWidget {
     final plColor = isProfit ? const Color(0xFF6EE7B7) : const Color(0xFFFCA5A5);
 
     final lang = provider.settings.languageCode;
-    final trader = provider.settings.traderName.trim().isNotEmpty
-        ? provider.settings.traderName.trim()
-        : 'Zacxy';
+    final activeAccount = provider.activeAccount;
 
     return Container(
       width: double.infinity,
@@ -53,18 +51,36 @@ class HeroSummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Subtitle with dynamic Trader Name
+                // Top Header: TraderLog Branding & Account Switcher
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'by $trader',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.heroSubtitle,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.2,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.auto_graph_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'TraderLog',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
                     ),
                     GestureDetector(
                       onTap: () => AccountSwitcherSheet.show(context),
@@ -79,7 +95,7 @@ class HeroSummaryCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '[${provider.activeAccount.typeLabel}] ${provider.activeAccount.name}',
+                              '[${activeAccount.typeLabel}] ${activeAccount.name}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -113,7 +129,7 @@ class HeroSummaryCard extends StatelessWidget {
 
                 // Large Equity
                 Text(
-                  Formatters.formatAmount(equity, currency: provider.settings.accountCurrency),
+                  Formatters.formatAmount(equity, currency: activeAccount.currency),
                   style: const TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w800,
@@ -123,18 +139,20 @@ class HeroSummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
 
-                // Meta Row: Converted Currency + P/L Pill
+                // Meta Row: Converted Currency (if different) + P/L Pill
                 Row(
                   children: [
-                    Text(
-                      Formatters.formatAmount(equityIDR, currency: provider.settings.exchangeCurrency),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFFC5D3DE),
-                        fontWeight: FontWeight.w500,
+                    if (activeAccount.currency != provider.settings.exchangeCurrency) ...[
+                      Text(
+                        Formatters.formatAmount(equityIDR, currency: provider.settings.exchangeCurrency),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFFC5D3DE),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 8),
+                    ],
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -145,7 +163,7 @@ class HeroSummaryCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        '${Formatters.formatAmountSigned(pl, currency: provider.settings.accountCurrency)} · ${Formatters.formatPercent(plPct)}',
+                        '${Formatters.formatAmountSigned(pl, currency: activeAccount.currency)} · ${Formatters.formatPercent(plPct)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

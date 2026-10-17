@@ -124,7 +124,7 @@ class AppStrings {
       'trades_on_date': 'Transaksi tanggal',
 
       // Settings Categories
-      'cat_profile': 'Profil',
+      'cat_profile': 'Modal & Kurs',
       'cat_accounts': 'Multi-Akun',
       'cat_appearance': 'Tampilan',
       'cat_symbols': 'Simbol',
@@ -150,7 +150,7 @@ class AppStrings {
 
       // Profile & Account Settings
       'trader_name': 'Nama Trader / Akun',
-      'trader_name_hint': 'mis. Zacxy',
+      'trader_name_hint': 'mis. TraderLog',
       'account_currency': 'Currency Akun (Mata Uang Utama)',
       'account_currency_hint': 'Pilih mata uang utama akun Anda',
       'exchange_currency': 'Currency Nilai Tukar (Exchange Rate)',
@@ -345,7 +345,7 @@ class AppStrings {
       'trades_on_date': 'Trades on',
 
       // Settings Categories
-      'cat_profile': 'Profile',
+      'cat_profile': 'Capital & FX',
       'cat_accounts': 'Accounts',
       'cat_appearance': 'Display',
       'cat_symbols': 'Symbols',
@@ -371,7 +371,7 @@ class AppStrings {
 
       // Profile & Account Settings
       'trader_name': 'Trader / Account Name',
-      'trader_name_hint': 'e.g. Zacxy',
+      'trader_name_hint': 'e.g. TraderLog',
       'account_currency': 'Account Currency (Base Currency)',
       'account_currency_hint': 'Select your primary account currency',
       'exchange_currency': 'Exchange Rate Currency',
