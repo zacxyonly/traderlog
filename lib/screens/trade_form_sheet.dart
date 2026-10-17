@@ -550,8 +550,15 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Profit / Loss (USD)
-              _buildLabel(AppStrings.tr('pl_label', lang), mutedColor),
+              // Profit / Loss
+              _buildLabel(
+                AppStrings.tr(
+                  'pl_label',
+                  lang,
+                  params: {'curr': provider.settings.accountCurrency},
+                ),
+                mutedColor,
+              ),
               _buildTextField(
                 controller: _plController,
                 hint: AppStrings.tr('pl_hint', lang),

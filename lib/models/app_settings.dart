@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 class AppSettings {
   final String traderName;
   final String languageCode;
+  final String accountCurrency;
+  final String exchangeCurrency;
   final double initialCapital;
   final double usdToIdrRate;
   final ThemeMode themeMode;
@@ -24,6 +26,8 @@ class AppSettings {
   AppSettings({
     this.traderName = 'Zacxy',
     this.languageCode = 'id',
+    this.accountCurrency = 'USD',
+    this.exchangeCurrency = 'IDR',
     this.initialCapital = 1000.0,
     this.usdToIdrRate = 17998.0,
     this.themeMode = ThemeMode.system,
@@ -33,6 +37,8 @@ class AppSettings {
   AppSettings copyWith({
     String? traderName,
     String? languageCode,
+    String? accountCurrency,
+    String? exchangeCurrency,
     double? initialCapital,
     double? usdToIdrRate,
     ThemeMode? themeMode,
@@ -41,6 +47,8 @@ class AppSettings {
     return AppSettings(
       traderName: traderName ?? this.traderName,
       languageCode: languageCode ?? this.languageCode,
+      accountCurrency: accountCurrency ?? this.accountCurrency,
+      exchangeCurrency: exchangeCurrency ?? this.exchangeCurrency,
       initialCapital: initialCapital ?? this.initialCapital,
       usdToIdrRate: usdToIdrRate ?? this.usdToIdrRate,
       themeMode: themeMode ?? this.themeMode,
@@ -52,6 +60,8 @@ class AppSettings {
     return {
       'trader_name': traderName,
       'language_code': languageCode,
+      'account_currency': accountCurrency,
+      'exchange_currency': exchangeCurrency,
       'initial_capital': initialCapital.toString(),
       'usd_to_idr_rate': usdToIdrRate.toString(),
       'theme_mode': themeMode.name,
@@ -80,6 +90,12 @@ class AppSettings {
           ? map['trader_name']!
           : 'Zacxy',
       languageCode: map['language_code'] ?? 'id',
+      accountCurrency: (map['account_currency']?.trim().isNotEmpty == true)
+          ? map['account_currency']!
+          : 'USD',
+      exchangeCurrency: (map['exchange_currency']?.trim().isNotEmpty == true)
+          ? map['exchange_currency']!
+          : 'IDR',
       initialCapital: double.tryParse(map['initial_capital'] ?? '') ?? 1000.0,
       usdToIdrRate: double.tryParse(map['usd_to_idr_rate'] ?? '') ?? 17998.0,
       themeMode: mode,

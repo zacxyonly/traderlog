@@ -32,6 +32,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final summary = provider.getSummaryStats(_selectedPeriod);
 
     final lang = provider.settings.languageCode;
+    final currency = provider.settings.accountCurrency;
 
     return Scaffold(
       body: SafeArea(
@@ -110,7 +111,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   Expanded(
                     child: StatCard(
                       label: AppStrings.tr('profit_loss', lang),
-                      value: Formatters.formatUSDSigned(summary.netProfit),
+                      value: Formatters.formatAmountSigned(
+                        summary.netProfit,
+                        currency: currency,
+                      ),
                       valueColor: summary.netProfit > 0
                           ? AppColors.winText
                           : (summary.netProfit < 0
@@ -197,7 +201,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     _buildRow(
                       AppStrings.tr('avg_win', lang),
                       summary.winCount > 0
-                          ? Formatters.formatUSD(summary.avgWin)
+                          ? Formatters.formatAmount(summary.avgWin, currency: currency)
                           : '-',
                       AppColors.winText,
                       borderColor,
@@ -205,14 +209,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     _buildRow(
                       AppStrings.tr('avg_loss', lang),
                       summary.loseCount > 0
-                          ? Formatters.formatUSD(summary.avgLoss)
+                          ? Formatters.formatAmount(summary.avgLoss, currency: currency)
                           : '-',
                       summary.loseCount > 0 ? AppColors.loseText : textColor,
                       borderColor,
                     ),
                     _buildRow(
                       AppStrings.tr('expectancy', lang),
-                      Formatters.formatUSDSigned(summary.expectancy),
+                      Formatters.formatAmountSigned(summary.expectancy, currency: currency),
                       summary.expectancy > 0
                           ? AppColors.winText
                           : (summary.expectancy < 0
@@ -222,7 +226,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                     _buildRow(
                       AppStrings.tr('best_trade', lang),
-                      Formatters.formatUSDSigned(summary.bestTrade),
+                      Formatters.formatAmountSigned(summary.bestTrade, currency: currency),
                       summary.bestTrade > 0
                           ? AppColors.winText
                           : (summary.bestTrade < 0
@@ -232,7 +236,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                     _buildRow(
                       AppStrings.tr('worst_trade', lang),
-                      Formatters.formatUSDSigned(summary.worstTrade),
+                      Formatters.formatAmountSigned(summary.worstTrade, currency: currency),
                       summary.worstTrade > 0
                           ? AppColors.winText
                           : (summary.worstTrade < 0
@@ -322,7 +326,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                               ),
                             ),
                             Text(
-                              Formatters.formatUSDSigned(sym.totalPL),
+                              Formatters.formatAmountSigned(sym.totalPL, currency: currency),
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,

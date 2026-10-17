@@ -1,43 +1,86 @@
 import 'package:intl/intl.dart';
 
 class Formatters {
-  static final NumberFormat _usdFormat = NumberFormat.currency(
-    locale: 'en_US',
-    symbol: '\$',
-    decimalDigits: 2,
-  );
-
-  static final NumberFormat _idrFormat = NumberFormat.currency(
-    locale: 'id_ID',
-    symbol: 'Rp ',
-    decimalDigits: 0,
-  );
-
   static final DateFormat _dateTimeFormat = DateFormat('dd MMM yyyy, HH:mm', 'id_ID');
   static final DateFormat _monthYearFormat = DateFormat('MMMM yyyy', 'id_ID');
   static final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
 
+  /// Returns the currency symbol for a given currency code
+  static String getCurrencySymbol(String currencyCode) {
+    switch (currencyCode.toUpperCase()) {
+      case 'IDR':
+        return 'Rp ';
+      case 'EUR':
+        return '€';
+      case 'GBP':
+        return '£';
+      case 'JPY':
+        return '¥';
+      case 'SGD':
+        return 'S\$';
+      case 'AUD':
+        return 'A\$';
+      case 'USDC':
+        return 'USDC ';
+      case 'USDT':
+        return 'USDT ';
+      case 'USD':
+      default:
+        return '\$';
+    }
+  }
+
+  /// Formats amount in any currency: e.g. $1,250.00 or Rp 18.000.000
+  static String formatAmount(double amount, {String currency = 'USD'}) {
+    final cur = currency.toUpperCase();
+    final symbol = getCurrencySymbol(cur);
+    final isZeroDecimal = cur == 'IDR' || cur == 'JPY';
+
+    final formatter = NumberFormat.currency(
+      locale: cur == 'IDR' ? 'id_ID' : 'en_US',
+      symbol: symbol,
+      decimalDigits: isZeroDecimal ? 0 : 2,
+    );
+
+    if (amount < 0) {
+      return '-${formatter.format(amount.abs())}';
+    }
+    return formatter.format(amount);
+  }
+
+  /// Formats amount with explicit +/- sign in any currency: +$1,250.00 or -Rp 50.000
+  static String formatAmountSigned(double amount, {String currency = 'USD'}) {
+    final cur = currency.toUpperCase();
+    final symbol = getCurrencySymbol(cur);
+    final isZeroDecimal = cur == 'IDR' || cur == 'JPY';
+
+    final formatter = NumberFormat.currency(
+      locale: cur == 'IDR' ? 'id_ID' : 'en_US',
+      symbol: symbol,
+      decimalDigits: isZeroDecimal ? 0 : 2,
+    );
+
+    if (amount > 0) {
+      return '+${formatter.format(amount)}';
+    } else if (amount < 0) {
+      return '-${formatter.format(amount.abs())}';
+    }
+    return formatter.format(0.0);
+  }
+
   /// Formats currency in USD: $1,250.00 or -$50.00
   static String formatUSD(double amount) {
-    if (amount < 0) {
-      return '-${_usdFormat.format(amount.abs())}';
-    }
-    return _usdFormat.format(amount);
+    return formatAmount(amount, currency: 'USD');
   }
 
   /// Formats currency with explicit plus/minus: +$1,250.00 or -$50.00
   static String formatUSDSigned(double amount) {
-    if (amount > 0) {
-      return '+${_usdFormat.format(amount)}';
-    } else if (amount < 0) {
-      return '-${_usdFormat.format(amount.abs())}';
-    }
-    return _usdFormat.format(0.0);
+    return formatAmountSigned(amount, currency: 'USD');
   }
 
   /// Formats currency in Indonesian Rupiah: Rp 22.497.500
   static String formatIDR(double amount) {
-    return _idrFormat.format(amount.round());
+    return formatAmount(amount, currency: 'IDR');
   }
 
   /// Formats percentage: +2.50% or -1.20%

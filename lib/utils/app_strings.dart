@@ -35,7 +35,7 @@ class AppStrings {
       'stop_loss': 'Stop Loss (SL)',
       'take_profit': 'Take Profit (TP)',
       'risk_reward': 'Risk to Reward',
-      'pl_label': 'Profit / Loss (USD, gunakan minus jika loss)',
+      'pl_label': 'Profit / Loss ({curr}, gunakan minus jika loss)',
       'pl_hint': 'mis. 120 atau -50',
       'why_label': 'Alasan Ambil Trade (Setup / Konfirmasi)',
       'why_hint': 'mis. Break of structure di M15 + retest FVG',
@@ -87,8 +87,14 @@ class AppStrings {
       // Profile & Account Settings
       'trader_name': 'Nama Trader / Akun',
       'trader_name_hint': 'mis. Zacxy',
-      'initial_capital': 'Modal awal (USD)',
-      'usd_idr_rate': 'Kurs IDR per 1 USD',
+      'account_currency': 'Currency Akun (Mata Uang Utama)',
+      'account_currency_hint': 'Pilih mata uang utama akun Anda',
+      'exchange_currency': 'Currency Nilai Tukar (Exchange Rate)',
+      'exchange_currency_hint': 'Pilih mata uang kurs pembanding (sementara IDR)',
+      'initial_capital': 'Modal awal',
+      'initial_capital_label': 'Modal awal ({curr})',
+      'usd_idr_rate': 'Kurs Nilai Tukar',
+      'exchange_rate_label': 'Kurs {target} per 1 {base}',
 
       // Appearance Settings
       'appearance_title': 'Tampilan & Tema',
@@ -154,7 +160,7 @@ class AppStrings {
       'stop_loss': 'Stop Loss (SL)',
       'take_profit': 'Take Profit (TP)',
       'risk_reward': 'Risk to Reward',
-      'pl_label': 'Profit / Loss (USD, use minus for loss)',
+      'pl_label': 'Profit / Loss ({curr}, use minus for loss)',
       'pl_hint': 'e.g. 120 or -50',
       'why_label': 'Trade Reason (Setup / Confirmation)',
       'why_hint': 'e.g. M15 break of structure + FVG retest',
@@ -206,8 +212,14 @@ class AppStrings {
       // Profile & Account Settings
       'trader_name': 'Trader / Account Name',
       'trader_name_hint': 'e.g. Zacxy',
-      'initial_capital': 'Initial Capital (USD)',
-      'usd_idr_rate': 'USD to IDR Exchange Rate',
+      'account_currency': 'Account Currency (Base Currency)',
+      'account_currency_hint': 'Select your primary account currency',
+      'exchange_currency': 'Exchange Rate Currency',
+      'exchange_currency_hint': 'Select comparison exchange currency (default IDR)',
+      'initial_capital': 'Initial Capital',
+      'initial_capital_label': 'Initial Capital ({curr})',
+      'usd_idr_rate': 'Exchange Rate',
+      'exchange_rate_label': 'Exchange rate: {target} per 1 {base}',
 
       // Appearance Settings
       'appearance_title': 'Theme & Display',

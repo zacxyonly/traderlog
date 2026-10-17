@@ -240,7 +240,10 @@ class _JournalScreenState extends State<JournalScreen> {
                               ),
                             ),
                             Text(
-                              Formatters.formatUSDSigned(totalMonthPL),
+                              Formatters.formatAmountSigned(
+                                totalMonthPL,
+                                currency: provider.settings.accountCurrency,
+                              ),
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,

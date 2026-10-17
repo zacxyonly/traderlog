@@ -18,6 +18,31 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   int _selectedCategoryIndex = 0; // 0: Profil, 1: Tampilan, 2: Simbol, 3: Data
 
+  static const List<Map<String, String>> _accountCurrencies = [
+    {'code': 'USD', 'symbol': '\$', 'name': 'US Dollar'},
+    {'code': 'IDR', 'symbol': 'Rp', 'name': 'Indonesian Rupiah'},
+    {'code': 'USDC', 'symbol': '\$', 'name': 'USD Coin'},
+    {'code': 'USDT', 'symbol': '\$', 'name': 'Tether USD'},
+    {'code': 'EUR', 'symbol': '€', 'name': 'Euro'},
+    {'code': 'GBP', 'symbol': '£', 'name': 'British Pound'},
+    {'code': 'JPY', 'symbol': '¥', 'name': 'Japanese Yen'},
+    {'code': 'SGD', 'symbol': 'S\$', 'name': 'Singapore Dollar'},
+    {'code': 'AUD', 'symbol': 'A\$', 'name': 'Australian Dollar'},
+  ];
+
+  static const List<Map<String, String>> _exchangeCurrencies = [
+    {'code': 'IDR', 'symbol': 'Rp', 'name': 'Indonesian Rupiah'},
+    {'code': 'USD', 'symbol': '\$', 'name': 'US Dollar'},
+    {'code': 'EUR', 'symbol': '€', 'name': 'Euro'},
+    {'code': 'SGD', 'symbol': 'S\$', 'name': 'Singapore Dollar'},
+    {'code': 'JPY', 'symbol': '¥', 'name': 'Japanese Yen'},
+  ];
+
+  static const List<Map<String, String>> _languages = [
+    {'code': 'id', 'name': '🇮🇩 Bahasa Indonesia'},
+    {'code': 'en', 'name': '🇬🇧 English'},
+  ];
+
   final _nameController = TextEditingController();
   final _capController = TextEditingController();
   final _fxController = TextEditingController();
@@ -444,7 +469,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
 
-                  _buildLabel(AppStrings.tr('initial_capital', lang), mutedColor),
+                  // Currency Akun (Dropdown)
+                  _buildLabel(
+                    AppStrings.tr('account_currency', lang),
+                    mutedColor,
+                  ),
+                  _buildDropdown<String>(
+                    value: _accountCurrencies
+                            .any((c) => c['code'] == settings.accountCurrency)
+                        ? settings.accountCurrency
+                        : _accountCurrencies.first['code']!,
+                    items: _accountCurrencies.map((c) {
+                      return DropdownMenuItem<String>(
+                        value: c['code'],
+                        child: Text(
+                          '${c['code']} (${c['symbol']}) · ${c['name']}',
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        context
+                            .read<TradeProvider>()
+                            .updateAccountCurrency(val);
+                      }
+                    },
+                    cardColor: cardColor,
+                    softColor: softColor,
+                    borderColor: borderColor,
+                    textColor: textColor,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Modal Awal
+                  _buildLabel(
+                    AppStrings.tr(
+                      'initial_capital_label',
+                      lang,
+                      params: {'curr': settings.accountCurrency},
+                    ),
+                    mutedColor,
+                  ),
                   TextField(
                     controller: _capController,
                     keyboardType:
@@ -464,7 +529,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  _buildLabel(AppStrings.tr('usd_idr_rate', lang), mutedColor),
+                  // Currency Exchange Rate (Dropdown)
+                  _buildLabel(
+                    AppStrings.tr('exchange_currency', lang),
+                    mutedColor,
+                  ),
+                  _buildDropdown<String>(
+                    value: _exchangeCurrencies
+                            .any((c) => c['code'] == settings.exchangeCurrency)
+                        ? settings.exchangeCurrency
+                        : _exchangeCurrencies.first['code']!,
+                    items: _exchangeCurrencies.map((c) {
+                      return DropdownMenuItem<String>(
+                        value: c['code'],
+                        child: Text(
+                          '${c['code']} (${c['symbol']}) · ${c['name']}',
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        context
+                            .read<TradeProvider>()
+                            .updateExchangeCurrency(val);
+                      }
+                    },
+                    cardColor: cardColor,
+                    softColor: softColor,
+                    borderColor: borderColor,
+                    textColor: textColor,
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Nilai Kurs
+                  _buildLabel(
+                    AppStrings.tr(
+                      'exchange_rate_label',
+                      lang,
+                      params: {
+                        'target': settings.exchangeCurrency,
+                        'base': settings.accountCurrency,
+                      },
+                    ),
+                    mutedColor,
+                  ),
                   TextField(
                     controller: _fxController,
                     keyboardType:
@@ -485,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      'Preview: \$1,000 = ${Formatters.formatIDR(1000.0 * settings.usdToIdrRate)}',
+                      'Preview: 1,000 ${settings.accountCurrency} = ${Formatters.formatAmount(1000.0 * settings.usdToIdrRate, currency: settings.exchangeCurrency)}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -503,35 +611,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderColor,
                 isDark,
                 [
+                  // Pilihan Bahasa (Dropdown)
                   _buildLabel(AppStrings.tr('language_title', lang), mutedColor),
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: softColor,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildToggleButton(
-                          'id',
-                          '🇮🇩 Bahasa Indonesia',
-                          lang,
-                          cardColor,
-                          textColor,
-                          mutedColor,
-                          (v) => _setLanguage(v),
-                        ),
-                        _buildToggleButton(
-                          'en',
-                          '🇬🇧 English',
-                          lang,
-                          cardColor,
-                          textColor,
-                          mutedColor,
-                          (v) => _setLanguage(v),
-                        ),
-                      ],
-                    ),
+                  _buildDropdown<String>(
+                    value: lang == 'en' ? 'en' : 'id',
+                    items: _languages.map((l) {
+                      return DropdownMenuItem<String>(
+                        value: l['code'],
+                        child: Text(l['name']!),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        _setLanguage(val);
+                      }
+                    },
+                    cardColor: cardColor,
+                    softColor: softColor,
+                    borderColor: borderColor,
+                    textColor: textColor,
                   ),
                   const SizedBox(height: 18),
 
@@ -836,44 +934,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildToggleButton(
-    String val,
-    String label,
-    String currentVal,
-    Color activeBg,
-    Color textColor,
-    Color mutedText,
-    ValueChanged<String> onChanged,
-  ) {
-    final isSelected = currentVal == val;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => onChanged(val),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
-            color: isSelected ? activeBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    )
-                  ]
-                : null,
+  Widget _buildDropdown<T>({
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+    required Color cardColor,
+    required Color softColor,
+    required Color borderColor,
+    required Color textColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: softColor,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: borderColor),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: cardColor,
+          icon: const Icon(
+            Icons.arrow_drop_down_rounded,
+            color: AppColors.primary,
+            size: 28,
           ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: isSelected ? textColor : mutedText,
-            ),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: textColor,
           ),
+          items: items,
+          onChanged: onChanged,
         ),
       ),
     );

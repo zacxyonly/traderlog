@@ -91,7 +91,7 @@ class HeroSummaryCard extends StatelessWidget {
 
                 // Large Equity
                 Text(
-                  Formatters.formatUSD(equity),
+                  Formatters.formatAmount(equity, currency: provider.settings.accountCurrency),
                   style: const TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w800,
@@ -101,11 +101,11 @@ class HeroSummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
 
-                // Meta Row: Rupiah + P/L Pill
+                // Meta Row: Converted Currency + P/L Pill
                 Row(
                   children: [
                     Text(
-                      Formatters.formatIDR(equityIDR),
+                      Formatters.formatAmount(equityIDR, currency: provider.settings.exchangeCurrency),
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFFC5D3DE),
@@ -123,7 +123,7 @@ class HeroSummaryCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        '${Formatters.formatUSDSigned(pl)} · ${Formatters.formatPercent(plPct)}',
+                        '${Formatters.formatAmountSigned(pl, currency: provider.settings.accountCurrency)} · ${Formatters.formatPercent(plPct)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

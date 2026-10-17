@@ -4,6 +4,7 @@ import 'package:traderlog/models/trade.dart';
 import 'package:traderlog/models/app_settings.dart';
 import 'package:traderlog/services/csv_service.dart';
 import 'package:traderlog/utils/app_strings.dart';
+import 'package:traderlog/utils/formatters.dart';
 
 void main() {
   group('Trade Model Tests', () {
@@ -106,16 +107,20 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(settings.usdToIdrRate, 17998.0);
       expect(settings.traderName, 'Zacxy');
       expect(settings.languageCode, 'id');
+      expect(settings.accountCurrency, 'USD');
+      expect(settings.exchangeCurrency, 'IDR');
       expect(settings.symbols.contains('XAU/USD'), true);
       expect(settings.symbols.contains('BTC/USD'), true);
     });
 
-    test('AppSettings serialization supports traderName and languageCode', () {
+    test('AppSettings serialization supports currencies, traderName and languageCode', () {
       final settings = AppSettings(
         initialCapital: 5000.0,
         usdToIdrRate: 16500.0,
         traderName: 'TraderPro',
         languageCode: 'en',
+        accountCurrency: 'USDC',
+        exchangeCurrency: 'IDR',
         themeMode: ThemeMode.dark,
       );
       final map = settings.toDatabaseMap();
@@ -123,9 +128,21 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
 
       expect(fromMap.traderName, 'TraderPro');
       expect(fromMap.languageCode, 'en');
+      expect(fromMap.accountCurrency, 'USDC');
+      expect(fromMap.exchangeCurrency, 'IDR');
       expect(fromMap.initialCapital, 5000.0);
       expect(fromMap.usdToIdrRate, 16500.0);
       expect(fromMap.themeMode, ThemeMode.dark);
+    });
+  });
+
+  group('Currency Formatters Tests', () {
+    test('Formats multi-currency amounts accurately', () {
+      expect(Formatters.formatAmount(1250.50, currency: 'USD'), '\$1,250.50');
+      expect(Formatters.formatAmount(-50.0, currency: 'USD'), '-\$50.00');
+      expect(Formatters.formatAmount(18000000, currency: 'IDR'), 'Rp 18.000.000');
+      expect(Formatters.formatAmountSigned(250.0, currency: 'EUR'), '+€250.00');
+      expect(Formatters.formatAmountSigned(-100.0, currency: 'USDC'), '-USDC 100.00');
     });
   });
 
@@ -139,6 +156,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(AppStrings.tr('cat_appearance', 'en'), 'Display');
       expect(AppStrings.tr('new_trade', 'id'), 'Trade Baru');
       expect(AppStrings.tr('new_trade', 'en'), 'New Trade');
+      expect(AppStrings.tr('account_currency', 'id'), 'Currency Akun (Mata Uang Utama)');
+      expect(AppStrings.tr('account_currency', 'en'), 'Account Currency (Base Currency)');
     });
   });
 }

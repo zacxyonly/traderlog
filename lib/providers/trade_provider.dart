@@ -170,6 +170,14 @@ class TradeProvider extends ChangeNotifier {
     await updateSettings(_settings.copyWith(traderName: name));
   }
 
+  Future<void> updateAccountCurrency(String currency) async {
+    await updateSettings(_settings.copyWith(accountCurrency: currency));
+  }
+
+  Future<void> updateExchangeCurrency(String currency) async {
+    await updateSettings(_settings.copyWith(exchangeCurrency: currency));
+  }
+
   Future<void> addSymbol(String symbol) async {
     final sym = symbol.trim().toUpperCase();
     if (sym.isNotEmpty && !_settings.symbols.contains(sym)) {

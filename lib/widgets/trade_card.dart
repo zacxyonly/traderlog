@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/trade.dart';
+import '../providers/trade_provider.dart';
 import '../utils/formatters.dart';
 import 'image_viewer_dialog.dart';
 
@@ -27,6 +29,7 @@ class TradeCard extends StatelessWidget {
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final currency = context.watch<TradeProvider>().settings.accountCurrency;
 
     Color statusColor;
     Color statusBgColor;
@@ -153,7 +156,7 @@ class TradeCard extends StatelessWidget {
                           textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
-                              Formatters.formatUSDSigned(trade.pl),
+                              Formatters.formatAmountSigned(trade.pl, currency: currency),
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -175,7 +178,7 @@ class TradeCard extends StatelessWidget {
 
                         // Sub row: Date · Cumulative Equity · Lot
                         Text(
-                          '${Formatters.formatDateTime(trade.date)} · Equity ${Formatters.formatUSD(cumulativeEquity)}${trade.lot != null ? ' · ${trade.lot} lot' : ''}',
+                          '${Formatters.formatDateTime(trade.date)} · Equity ${Formatters.formatAmount(cumulativeEquity, currency: currency)}${trade.lot != null ? ' · ${trade.lot} lot' : ''}',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: mutedColor,
