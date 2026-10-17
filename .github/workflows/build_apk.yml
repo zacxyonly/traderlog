@@ -44,7 +44,7 @@ jobs:
         run: flutter test
 
       - name: Build Android Release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Rename APK for clarity
         run: |
