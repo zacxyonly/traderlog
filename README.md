@@ -27,11 +27,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/zacxyonly/traderlog/releases/download/v1.1.0/TraderLog-v1.0.0.apk">
-    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.1.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
+  <a href="https://github.com/zacxyonly/traderlog/releases/download/v1.2.0/TraderLog-v1.0.0.apk">
+    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.2.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
   </a>
   <a href="https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml">
-    <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-Manual_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
+    <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-CI_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
   </a>
 </p>
 
