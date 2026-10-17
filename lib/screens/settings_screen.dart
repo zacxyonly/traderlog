@@ -48,13 +48,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _fxController = TextEditingController();
   final _newSymbolController = TextEditingController();
 
+  String _formatRate(double rate) {
+    if (rate >= 100) {
+      return rate == rate.roundToDouble()
+          ? rate.toStringAsFixed(0)
+          : rate.toStringAsFixed(2);
+    } else if (rate >= 1) {
+      return rate
+          .toStringAsFixed(4)
+          .replaceAll(RegExp(r'0+$'), '')
+          .replaceAll(RegExp(r'\.$'), '');
+    } else {
+      return rate
+          .toStringAsFixed(6)
+          .replaceAll(RegExp(r'0+$'), '')
+          .replaceAll(RegExp(r'\.$'), '');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     final settings = context.read<TradeProvider>().settings;
     _nameController.text = settings.traderName;
     _capController.text = settings.initialCapital.toStringAsFixed(0);
-    _fxController.text = settings.usdToIdrRate.toStringAsFixed(0);
+    _fxController.text = _formatRate(settings.usdToIdrRate);
+  }
+
+  Future<void> _syncRate(String lang) async {
+    final provider = context.read<TradeProvider>();
+    final newRate = await provider.syncExchangeRate();
+    if (!mounted) return;
+    if (newRate != null) {
+      _fxController.text = _formatRate(newRate);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Text(
+            AppStrings.tr(
+              'rate_synced',
+              lang,
+              params: {
+                'base': provider.settings.accountCurrency,
+                'target': provider.settings.exchangeCurrency,
+                'rate': _formatRate(newRate),
+              },
+            ),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Text(AppStrings.tr('rate_sync_failed', lang)),
+        ),
+      );
+    }
   }
 
   @override
@@ -359,7 +416,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
 
-    final settings = context.watch<TradeProvider>().settings;
+    final tradeProvider = context.watch<TradeProvider>();
+    final settings = tradeProvider.settings;
     final lang = settings.languageCode;
 
     final categories = [
@@ -487,11 +545,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (val) {
+                    onChanged: (val) async {
                       if (val != null) {
-                        context
-                            .read<TradeProvider>()
-                            .updateAccountCurrency(val);
+                        final provider = context.read<TradeProvider>();
+                        await provider.updateAccountCurrency(val);
+                        if (mounted) {
+                          _fxController.text =
+                              _formatRate(provider.settings.usdToIdrRate);
+                        }
                       }
                     },
                     cardColor: cardColor,
@@ -547,11 +608,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       );
                     }).toList(),
-                    onChanged: (val) {
+                    onChanged: (val) async {
                       if (val != null) {
-                        context
-                            .read<TradeProvider>()
-                            .updateExchangeCurrency(val);
+                        final provider = context.read<TradeProvider>();
+                        await provider.updateExchangeCurrency(val);
+                        if (mounted) {
+                          _fxController.text =
+                              _formatRate(provider.settings.usdToIdrRate);
+                        }
                       }
                     },
                     cardColor: cardColor,
@@ -561,17 +625,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Nilai Kurs
-                  _buildLabel(
-                    AppStrings.tr(
-                      'exchange_rate_label',
-                      lang,
-                      params: {
-                        'target': settings.exchangeCurrency,
-                        'base': settings.accountCurrency,
-                      },
-                    ),
-                    mutedColor,
+                  // Nilai Kurs Header + Sinkronkan Kurs Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: _buildLabel(
+                          AppStrings.tr(
+                            'exchange_rate_label',
+                            lang,
+                            params: {
+                              'target': settings.exchangeCurrency,
+                              'base': settings.accountCurrency,
+                            },
+                          ),
+                          mutedColor,
+                        ),
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: tradeProvider.isSyncingRate
+                            ? null
+                            : () => _syncRate(lang),
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: 8,
+                            right: 4,
+                            bottom: 6,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (tradeProvider.isSyncingRate)
+                                const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              else
+                                const Icon(
+                                  Icons.sync_rounded,
+                                  size: 14,
+                                  color: AppColors.primary,
+                                ),
+                              const SizedBox(width: 4),
+                              Text(
+                                AppStrings.tr(
+                                  tradeProvider.isSyncingRate
+                                      ? 'syncing_rate'
+                                      : 'sync_rate',
+                                  lang,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   TextField(
                     controller: _fxController,
@@ -586,6 +704,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       softColor,
                       borderColor,
                       '17998',
+                    ).copyWith(
+                      suffixIcon: IconButton(
+                        icon: tradeProvider.isSyncingRate
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.primary,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.sync_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                        tooltip: AppStrings.tr('sync_rate', lang),
+                        onPressed: tradeProvider.isSyncingRate
+                            ? null
+                            : () => _syncRate(lang),
+                      ),
                     ),
                     onSubmitted: (_) => _saveFx(),
                     onChanged: (_) => _saveFx(),

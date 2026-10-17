@@ -27,8 +27,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/zacxyonly/traderlog/releases/download/v1.2.0/TraderLog-v1.0.0.apk">
-    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.2.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
+  <a href="https://github.com/zacxyonly/traderlog/releases/latest">
+    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.3.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
   </a>
   <a href="https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml">
     <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-CI_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
@@ -51,6 +51,7 @@ Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQ
 | :--- | :--- |
 | **⚡ Live Risk:Reward Calculator** | Menghitung rasio Risk to Reward secara otomatis dan real-time saat Anda mengetik Entry Price, Stop Loss (SL), dan Take Profit (TP). |
 | **📈 Kurva Modal & Analisis Mendalam** | Grafik kurva equity akumulatif interaktif dengan kalkulasi Win Rate, Profit Factor, Expectancy, Average Win/Loss, Max Drawdown, dan Streak beruntun. |
+| **💱 Kurs Otomatis & Multi-Currency** | Dukungan mata uang akun (USD, IDR, USDC, USDT, EUR, GBP, JPY, SGD, AUD) serta sinkronisasi kurs live otomatis 1-tap via open FX market API. |
 | **📸 Lampiran Screenshot Chart** | Sematkan gambar grafik chart analisis teknikal langsung dari Galeri perangkat atau Kamera, lengkap dengan image viewer zoomable layar penuh. |
 | **🌐 Bilingual (ID & EN)** | Beralih instan antara **Bahasa Indonesia** 🇮🇩 dan **English** 🇬🇧 di seluruh menu, navigasi, dialog, dan formulir. |
 | **⚙️ Tab Pengaturan Terkategori** | Menu pengaturan terbagi rapi ke 4 kategori: **Profil**, **Tampilan**, **Simbol**, dan **Data**. |

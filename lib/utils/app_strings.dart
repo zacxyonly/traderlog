@@ -95,6 +95,10 @@ class AppStrings {
       'initial_capital_label': 'Modal awal ({curr})',
       'usd_idr_rate': 'Kurs Nilai Tukar',
       'exchange_rate_label': 'Kurs {target} per 1 {base}',
+      'sync_rate': 'Sinkronkan Kurs',
+      'syncing_rate': 'Mengambil kurs terkini...',
+      'rate_synced': 'Kurs berhasil diperbarui: 1 {base} = {rate} {target}',
+      'rate_sync_failed': 'Gagal mengambil kurs online. Menggunakan nilai tersimpan.',
 
       // Appearance Settings
       'appearance_title': 'Tampilan & Tema',
@@ -220,6 +224,10 @@ class AppStrings {
       'initial_capital_label': 'Initial Capital ({curr})',
       'usd_idr_rate': 'Exchange Rate',
       'exchange_rate_label': 'Exchange rate: {target} per 1 {base}',
+      'sync_rate': 'Sync Exchange Rate',
+      'syncing_rate': 'Fetching live rate...',
+      'rate_synced': 'Rate updated: 1 {base} = {rate} {target}',
+      'rate_sync_failed': 'Could not fetch live rate. Using stored value.',
 
       // Appearance Settings
       'appearance_title': 'Theme & Display',

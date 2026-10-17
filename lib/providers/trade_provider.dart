@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/app_settings.dart';
 import '../models/trade.dart';
+import '../services/currency_service.dart';
 
 class SymbolStat {
   final String symbol;
@@ -72,10 +73,12 @@ class TradeProvider extends ChangeNotifier {
   List<Trade> _trades = [];
   AppSettings _settings = AppSettings();
   bool _isLoading = true;
+  bool _isSyncingRate = false;
 
   List<Trade> get trades => _trades;
   AppSettings get settings => _settings;
   bool get isLoading => _isLoading;
+  bool get isSyncingRate => _isSyncingRate;
 
   TradeProvider() {
     loadData();
@@ -172,10 +175,37 @@ class TradeProvider extends ChangeNotifier {
 
   Future<void> updateAccountCurrency(String currency) async {
     await updateSettings(_settings.copyWith(accountCurrency: currency));
+    await syncExchangeRate();
   }
 
   Future<void> updateExchangeCurrency(String currency) async {
     await updateSettings(_settings.copyWith(exchangeCurrency: currency));
+    await syncExchangeRate();
+  }
+
+  /// Automatically synchronizes the latest exchange rate from the live open FX API.
+  /// Silently falls back to existing stored rate if offline or unreachable.
+  Future<double?> syncExchangeRate({bool notify = true}) async {
+    _isSyncingRate = true;
+    if (notify) notifyListeners();
+
+    try {
+      final rate = await CurrencyService.fetchExchangeRate(
+        baseCurrency: _settings.accountCurrency,
+        targetCurrency: _settings.exchangeCurrency,
+      );
+      if (rate != null && rate > 0) {
+        _settings = _settings.copyWith(usdToIdrRate: rate);
+        await _db.saveSettings(_settings);
+        return rate;
+      }
+    } catch (e) {
+      debugPrint('Error syncing exchange rate: $e');
+    } finally {
+      _isSyncingRate = false;
+      if (notify) notifyListeners();
+    }
+    return null;
   }
 
   Future<void> addSymbol(String symbol) async {

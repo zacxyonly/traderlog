@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:traderlog/models/trade.dart';
 import 'package:traderlog/models/app_settings.dart';
 import 'package:traderlog/services/csv_service.dart';
+import 'package:traderlog/services/currency_service.dart';
 import 'package:traderlog/utils/app_strings.dart';
 import 'package:traderlog/utils/formatters.dart';
 
@@ -158,6 +159,44 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(AppStrings.tr('new_trade', 'en'), 'New Trade');
       expect(AppStrings.tr('account_currency', 'id'), 'Currency Akun (Mata Uang Utama)');
       expect(AppStrings.tr('account_currency', 'en'), 'Account Currency (Base Currency)');
+    });
+  });
+
+  group('CurrencyService & Exchange Rate Tests', () {
+    test('Returns 1.0 immediately when base and target currency match', () async {
+      final rateUsd = await CurrencyService.fetchExchangeRate(
+        baseCurrency: 'USD',
+        targetCurrency: 'USD',
+      );
+      expect(rateUsd, 1.0);
+
+      final rateUsdcUsd = await CurrencyService.fetchExchangeRate(
+        baseCurrency: 'USDC',
+        targetCurrency: 'USD',
+      );
+      expect(rateUsdcUsd, 1.0);
+
+      final rateIdr = await CurrencyService.fetchExchangeRate(
+        baseCurrency: 'IDR',
+        targetCurrency: 'IDR',
+      );
+      expect(rateIdr, 1.0);
+    });
+
+    test('Translates sync rate strings with parameters', () {
+      final syncedId = AppStrings.tr('rate_synced', 'id', params: {
+        'base': 'USD',
+        'target': 'IDR',
+        'rate': '16250',
+      });
+      expect(syncedId, 'Kurs berhasil diperbarui: 1 USD = 16250 IDR');
+
+      final syncedEn = AppStrings.tr('rate_synced', 'en', params: {
+        'base': 'USD',
+        'target': 'IDR',
+        'rate': '16250',
+      });
+      expect(syncedEn, 'Rate updated: 1 USD = 16250 IDR');
     });
   });
 }
