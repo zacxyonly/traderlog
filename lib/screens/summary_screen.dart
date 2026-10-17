@@ -5,8 +5,9 @@ import '../constants/app_colors.dart';
 import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
-import '../widgets/equity_sparkline.dart';
 import '../widgets/hero_summary_card.dart';
+import '../widgets/interactive_equity_curve.dart';
+import '../widgets/pnl_calendar_heatmap.dart';
 import '../widgets/stat_card.dart';
 
 class SummaryScreen extends StatefulWidget {
@@ -136,44 +137,87 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 ],
               ),
               const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: StatCard(
+                      label: AppStrings.tr('actual_rr', lang),
+                      value: summary.actualRR != null
+                          ? '1:${summary.actualRR!.toStringAsFixed(2)}'
+                          : '-',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: StatCard(
+                      label: AppStrings.tr('max_drawdown', lang),
+                      value: Formatters.formatPercent(summary.maxDrawdown, signed: false),
+                      valueColor: summary.maxDrawdown > 0 ? AppColors.loseText : textColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
 
-              // Equity Curve Card (if more than 1 trade)
-              if (summary.equityPoints.length > 1) ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: borderColor),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppStrings.tr('equity_curve', lang),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: mutedColor,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      EquitySparkline(
-                        points: summary.equityPoints,
-                        height: 110,
-                      ),
-                    ],
-                  ),
+              // Interactive Equity Curve Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 10),
-              ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          AppStrings.tr('equity_curve', lang),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: mutedColor,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: softColor,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Text(
+                            lang == 'en' ? 'Touch & scrub for details' : 'Sentuh & geser untuk detail',
+                            style: TextStyle(fontSize: 10.5, color: mutedColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    InteractiveEquityCurve(
+                      equityPoints: summary.equityPoints,
+                      trades: provider.trades,
+                      initialCapital: provider.activeAccount.initialCapital,
+                      currency: currency,
+                      height: 140,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Calendar PnL Heatmap
+              const PnlCalendarHeatmap(),
+              const SizedBox(height: 14),
 
               // Detailed Performance Table Card
               Container(

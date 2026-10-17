@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'constants/app_colors.dart';
 import 'providers/trade_provider.dart';
 import 'screens/main_navigation_screen.dart';
+import 'screens/security_lock_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -81,7 +82,9 @@ class TraderlogApp extends StatelessWidget {
         ),
       ),
 
-      home: const MainNavigationScreen(),
+      home: provider.isLocked
+          ? const SecurityLockScreen()
+          : const MainNavigationScreen(),
     );
   }
 }

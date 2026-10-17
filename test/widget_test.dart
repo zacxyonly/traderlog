@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:traderlog/models/trade.dart';
 import 'package:traderlog/models/app_settings.dart';
+import 'package:traderlog/models/trade.dart';
+import 'package:traderlog/models/trading_account.dart';
 import 'package:traderlog/services/csv_service.dart';
 import 'package:traderlog/services/currency_service.dart';
 import 'package:traderlog/utils/app_strings.dart';
@@ -19,6 +20,9 @@ void main() {
         sl: 2590.0,
         tp: 2630.0,
         pl: 300.0,
+        accountId: 'acc_real',
+        imagePath: '/path/setup.png',
+        imagePathAfter: '/path/outcome.png',
       );
 
       // Risk = 10, Reward = 30 => RR = 3.0
@@ -26,6 +30,16 @@ void main() {
       expect(trade.formattedRR, '1:3.00');
       expect(trade.result, TradeResult.win);
       expect(trade.resultString, 'WIN');
+      expect(trade.accountId, 'acc_real');
+      expect(trade.imagePathAfter, '/path/outcome.png');
+
+      // Test map serialization & deserialization
+      final map = trade.toMap();
+      final fromMap = Trade.fromMap(map);
+      expect(fromMap.accountId, 'acc_real');
+      expect(fromMap.imagePath, '/path/setup.png');
+      expect(fromMap.imagePathAfter, '/path/outcome.png');
+      expect(fromMap.pl, 300.0);
     });
 
     test('Identifies Lose and BE correctly', () {
@@ -48,6 +62,32 @@ void main() {
       );
       expect(beTrade.result, TradeResult.be);
       expect(beTrade.resultString, 'BE');
+    });
+  });
+
+  group('TradingAccount Model Tests', () {
+    test('Default presets and serialization work as expected', () {
+      final defaultList = TradingAccount.defaultAccounts();
+      expect(defaultList.length, 3);
+      expect(defaultList[0].type, 'real');
+      expect(defaultList[1].type, 'demo');
+      expect(defaultList[2].type, 'prop_firm');
+
+      const customAcc = TradingAccount(
+        id: 'acc_funded_50k',
+        name: 'FTMO 50K Challenge',
+        type: 'prop_firm',
+        initialCapital: 50000.0,
+        currency: 'USD',
+      );
+
+      final map = customAcc.toMap();
+      final reconstructed = TradingAccount.fromMap(map);
+      expect(reconstructed.id, 'acc_funded_50k');
+      expect(reconstructed.name, 'FTMO 50K Challenge');
+      expect(reconstructed.type, 'prop_firm');
+      expect(reconstructed.initialCapital, 50000.0);
+      expect(reconstructed.currency, 'USD');
     });
   });
 
@@ -110,11 +150,15 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(settings.languageCode, 'id');
       expect(settings.accountCurrency, 'USD');
       expect(settings.exchangeCurrency, 'IDR');
+      expect(settings.activeAccountId, 'acc_real');
+      expect(settings.pinCode, isNull);
+      expect(settings.isBiometricEnabled, false);
+      expect(settings.accounts.length, 3);
       expect(settings.symbols.contains('XAU/USD'), true);
       expect(settings.symbols.contains('BTC/USD'), true);
     });
 
-    test('AppSettings serialization supports currencies, traderName and languageCode', () {
+    test('AppSettings serialization supports currencies, traderName, accounts and security', () {
       final settings = AppSettings(
         initialCapital: 5000.0,
         usdToIdrRate: 16500.0,
@@ -123,6 +167,10 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
         accountCurrency: 'USDC',
         exchangeCurrency: 'IDR',
         themeMode: ThemeMode.dark,
+        activeAccountId: 'acc_demo',
+        pinCode: '1234',
+        isBiometricEnabled: true,
+        lastBackupDate: '2026-10-17 15:30',
       );
       final map = settings.toDatabaseMap();
       final fromMap = AppSettings.fromDatabaseMap(map);
@@ -134,6 +182,10 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(fromMap.initialCapital, 5000.0);
       expect(fromMap.usdToIdrRate, 16500.0);
       expect(fromMap.themeMode, ThemeMode.dark);
+      expect(fromMap.activeAccountId, 'acc_demo');
+      expect(fromMap.pinCode, '1234');
+      expect(fromMap.isBiometricEnabled, true);
+      expect(fromMap.lastBackupDate, '2026-10-17 15:30');
     });
   });
 
@@ -155,10 +207,16 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(AppStrings.tr('cat_profile', 'en'), 'Profile');
       expect(AppStrings.tr('cat_appearance', 'id'), 'Tampilan');
       expect(AppStrings.tr('cat_appearance', 'en'), 'Display');
-      expect(AppStrings.tr('new_trade', 'id'), 'Trade Baru');
+      expect(AppStrings.tr('new_trade', 'id'), 'Catat Trade Baru');
       expect(AppStrings.tr('new_trade', 'en'), 'New Trade');
       expect(AppStrings.tr('account_currency', 'id'), 'Currency Akun (Mata Uang Utama)');
       expect(AppStrings.tr('account_currency', 'en'), 'Account Currency (Base Currency)');
+      expect(AppStrings.tr('calendar_title', 'id'), 'Kalender PnL & Konsistensi Harian');
+      expect(AppStrings.tr('calendar_title', 'en'), 'Daily PnL Calendar & Heatmap');
+      expect(AppStrings.tr('actual_rr', 'id'), 'Rasio RR Aktual (Payoff)');
+      expect(AppStrings.tr('actual_rr', 'en'), 'Actual RR (Payoff Ratio)');
+      expect(AppStrings.tr('pin_lock_title', 'id'), 'Kunci Aplikasi dengan PIN');
+      expect(AppStrings.tr('pin_lock_title', 'en'), 'App Lock with 4-Digit PIN');
     });
   });
 
@@ -200,4 +258,3 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
     });
   });
 }
-

@@ -21,8 +21,10 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+      onOpen: _onOpenDB,
     );
   }
 
@@ -40,7 +42,9 @@ class DBHelper {
         pl REAL NOT NULL,
         why TEXT,
         note TEXT,
-        image_path TEXT
+        image_path TEXT,
+        image_path_after TEXT,
+        account_id TEXT
       )
     ''');
 
@@ -50,6 +54,26 @@ class DBHelper {
         value TEXT
       )
     ''');
+  }
+
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      try {
+        await db.execute('ALTER TABLE trades ADD COLUMN image_path_after TEXT;');
+      } catch (_) {}
+      try {
+        await db.execute("ALTER TABLE trades ADD COLUMN account_id TEXT DEFAULT 'acc_real';");
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _onOpenDB(Database db) async {
+    try {
+      await db.execute('ALTER TABLE trades ADD COLUMN image_path_after TEXT;');
+    } catch (_) {}
+    try {
+      await db.execute("ALTER TABLE trades ADD COLUMN account_id TEXT DEFAULT 'acc_real';");
+    } catch (_) {}
   }
 
   // --- Trade Operations ---

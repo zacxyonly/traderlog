@@ -7,6 +7,7 @@ import '../models/trade.dart';
 import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
+import '../widgets/pnl_calculator_sheet.dart';
 
 class TradeFormSheet extends StatefulWidget {
   final Trade? tradeToEdit;
@@ -40,7 +41,32 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
   final _noteController = TextEditingController();
 
   String? _imagePath;
+  String? _imagePathAfter;
   final ImagePicker _picker = ImagePicker();
+
+  static const List<String> _setupTags = [
+    'BOS',
+    'CHOCH',
+    'FVG',
+    'Liquidity',
+    'Supply/Demand',
+    'Trendline',
+    'S&R',
+    'News',
+    'Fibonacci',
+  ];
+
+  static const List<String> _emotionTags = [
+    'Disiplin',
+    'FOMO',
+    'Revenge Trade',
+    'Overlot',
+    'Sabar',
+    'Greedy',
+    'Hesitant',
+    'Plan Executed',
+    'Early Exit',
+  ];
 
   @override
   void initState() {
@@ -69,6 +95,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       if (t.why != null) _whyController.text = t.why!;
       if (t.note != null) _noteController.text = t.note!;
       _imagePath = t.imagePath;
+      _imagePathAfter = t.imagePathAfter;
     }
 
     _entryController.addListener(_updateRR);
@@ -95,6 +122,65 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     setState(() {});
   }
 
+  void _toggleSetupTag(String tag) {
+    final current = _whyController.text;
+    if (current.contains(tag)) {
+      final updated = current
+          .replaceAll(tag, '')
+          .replaceAll(', ,', ',')
+          .replaceAll(RegExp(r'^[,\s]+|[,\s]+$'), '');
+      _whyController.text = updated;
+    } else {
+      if (current.trim().isEmpty) {
+        _whyController.text = tag;
+      } else {
+        _whyController.text = '${current.trim()}, $tag';
+      }
+    }
+    setState(() {});
+  }
+
+  void _toggleEmotionTag(String tag) {
+    final current = _noteController.text;
+    if (current.contains(tag)) {
+      final updated = current
+          .replaceAll(tag, '')
+          .replaceAll(', ,', ',')
+          .replaceAll(RegExp(r'^[,\s]+|[,\s]+$'), '');
+      _noteController.text = updated;
+    } else {
+      if (current.trim().isEmpty) {
+        _noteController.text = tag;
+      } else {
+        _noteController.text = '${current.trim()}, $tag';
+      }
+    }
+    setState(() {});
+  }
+
+  void _openCalculator() {
+    final entry = double.tryParse(_entryController.text);
+    final exit = double.tryParse(_tpController.text) ?? double.tryParse(_slController.text);
+    final lot = double.tryParse(_lotController.text);
+    final provider = context.read<TradeProvider>();
+
+    PnlCalculatorSheet.show(
+      context: context,
+      side: _side,
+      initialEntry: entry,
+      initialExit: exit,
+      initialLot: lot,
+      symbol: _selectedSymbol,
+      currency: provider.settings.accountCurrency,
+      lang: provider.settings.languageCode,
+      onApply: (estimated) {
+        setState(() {
+          _plController.text = estimated.toStringAsFixed(2);
+        });
+      },
+    );
+  }
+
   String _calculateLiveRR() {
     final entry = double.tryParse(_entryController.text);
     final sl = double.tryParse(_slController.text);
@@ -111,7 +197,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     return '-';
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImage(ImageSource source, {bool isAfter = false}) async {
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -121,7 +207,11 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       );
       if (pickedFile != null) {
         setState(() {
-          _imagePath = pickedFile.path;
+          if (isAfter) {
+            _imagePathAfter = pickedFile.path;
+          } else {
+            _imagePath = pickedFile.path;
+          }
         });
       }
     } catch (e) {
@@ -201,6 +291,8 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       why: why.isNotEmpty ? why : null,
       note: note.isNotEmpty ? note : null,
       imagePath: _imagePath,
+      imagePathAfter: _imagePathAfter,
+      accountId: widget.tradeToEdit?.accountId ?? provider.settings.activeAccountId,
     );
 
     if (widget.tradeToEdit != null) {
@@ -550,14 +642,41 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Profit / Loss
-              _buildLabel(
-                AppStrings.tr(
-                  'pl_label',
-                  lang,
-                  params: {'curr': provider.settings.accountCurrency},
-                ),
-                mutedColor,
+              // Profit / Loss with Calculator Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildLabel(
+                    AppStrings.tr(
+                      'pl_label',
+                      lang,
+                      params: {'curr': provider.settings.accountCurrency},
+                    ),
+                    mutedColor,
+                  ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: _openCalculator,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 6, right: 4, bottom: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calculate_outlined, size: 15, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            AppStrings.tr('calc_pnl_button', lang),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               _buildTextField(
                 controller: _plController,
@@ -572,8 +691,41 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Alasan ("Why")
+              // Alasan ("Why") + Quick Setup Chips
               _buildLabel(AppStrings.tr('why_label', lang), mutedColor),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _setupTags.map((tag) {
+                    final isSelected = _whyController.text.contains(tag);
+                    return GestureDetector(
+                      onTap: () => _toggleSetupTag(tag),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary.withOpacity(0.18) : softColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : borderColor,
+                            width: isSelected ? 1.3 : 1.0,
+                          ),
+                        ),
+                        child: Text(
+                          tag,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                            color: isSelected ? AppColors.primary : mutedColor,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
               _buildTextField(
                 controller: _whyController,
                 hint: AppStrings.tr('why_hint', lang),
@@ -584,8 +736,44 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Catatan ("Note")
+              // Catatan ("Note") + Quick Emotion Chips
               _buildLabel(AppStrings.tr('note_label', lang), mutedColor),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: _emotionTags.map((tag) {
+                    final isSelected = _noteController.text.contains(tag);
+                    final isNegative = tag == 'FOMO' || tag == 'Revenge Trade' || tag == 'Overlot' || tag == 'Greedy' || tag == 'Hesitant';
+                    final highlightColor = isNegative ? AppColors.lose : AppColors.primary;
+
+                    return GestureDetector(
+                      onTap: () => _toggleEmotionTag(tag),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isSelected ? highlightColor.withOpacity(0.18) : softColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected ? highlightColor : borderColor,
+                            width: isSelected ? 1.3 : 1.0,
+                          ),
+                        ),
+                        child: Text(
+                          tag,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                            color: isSelected ? highlightColor : mutedColor,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
               _buildTextField(
                 controller: _noteController,
                 hint: AppStrings.tr('note_hint', lang),
@@ -596,70 +784,27 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Screenshot Chart Attachment
-              _buildLabel(AppStrings.tr('chart_screenshot', lang), mutedColor),
-              if (_imagePath != null && _imagePath!.isNotEmpty) ...[
-                Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(13),
-                      child: Container(
-                        height: 160,
-                        width: double.infinity,
-                        color: Colors.black12,
-                        child: Image.file(
-                          File(_imagePath!),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const CircleAvatar(
-                        radius: 14,
-                        backgroundColor: Colors.black87,
-                        child: Icon(Icons.close, size: 16, color: Colors.white),
-                      ),
-                      onPressed: () {
-                        setState(() => _imagePath = null);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.photo_library_outlined, size: 18),
-                      label: Text(AppStrings.tr('from_gallery', lang)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        side: BorderSide(color: borderColor),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => _pickImage(ImageSource.gallery),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                      label: Text(AppStrings.tr('open_camera', lang)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        side: BorderSide(color: borderColor),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => _pickImage(ImageSource.camera),
-                    ),
-                  ),
-                ],
+              // Dua Slot Gambar: Slot 1 (Sebelum Entry / Setup) & Slot 2 (Sesudah Selesai / Eksekusi)
+              _buildImageSlot(
+                title: AppStrings.tr('slot_before', lang),
+                imagePath: _imagePath,
+                onPick: (src) => _pickImage(src, isAfter: false),
+                onClear: () => setState(() => _imagePath = null),
+                lang: lang,
+                softColor: softColor,
+                borderColor: borderColor,
+                mutedColor: mutedColor,
+              ),
+              const SizedBox(height: 14),
+              _buildImageSlot(
+                title: AppStrings.tr('slot_after', lang),
+                imagePath: _imagePathAfter,
+                onPick: (src) => _pickImage(src, isAfter: true),
+                onClear: () => setState(() => _imagePathAfter = null),
+                lang: lang,
+                softColor: softColor,
+                borderColor: borderColor,
+                mutedColor: mutedColor,
               ),
               const SizedBox(height: 18),
 
@@ -777,6 +922,91 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
           borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
         ),
       ),
+    );
+  }
+
+  Widget _buildImageSlot({
+    required String title,
+    required String? imagePath,
+    required ValueChanged<ImageSource> onPick,
+    required VoidCallback onClear,
+    required String lang,
+    required Color softColor,
+    required Color borderColor,
+    required Color mutedColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildLabel(title, mutedColor),
+        if (imagePath != null && imagePath.isNotEmpty) ...[
+          Stack(
+            alignment: Alignment.topRight,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Container(
+                  height: 140,
+                  width: double.infinity,
+                  color: Colors.black12,
+                  child: Image.file(
+                    File(imagePath),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const CircleAvatar(
+                  radius: 14,
+                  backgroundColor: Colors.black87,
+                  child: Icon(Icons.close, size: 16, color: Colors.white),
+                ),
+                onPressed: onClear,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.photo_library_outlined, size: 16),
+                label: Text(
+                  AppStrings.tr('from_gallery', lang),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  side: BorderSide(color: borderColor),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                ),
+                onPressed: () => onPick(ImageSource.gallery),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                label: Text(
+                  AppStrings.tr('open_camera', lang),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  side: BorderSide(color: borderColor),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                ),
+                onPressed: () => onPick(ImageSource.camera),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

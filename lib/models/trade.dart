@@ -14,7 +14,9 @@ class Trade {
   final double pl;
   final String? why;
   final String? note;
-  final String? imagePath;
+  final String? imagePath; // Slot 1: Sebelum Entry (Setup)
+  final String? imagePathAfter; // Slot 2: Sesudah Selesai (Eksekusi / Reaksi Harga)
+  final String? accountId; // Multi-Account ID
 
   Trade({
     required this.id,
@@ -29,6 +31,8 @@ class Trade {
     this.why,
     this.note,
     this.imagePath,
+    this.imagePathAfter,
+    this.accountId = 'acc_real',
   });
 
   TradeResult get result {
@@ -50,6 +54,7 @@ class Trade {
 
   String get sideString => side == TradeSide.buy ? 'BUY' : 'SELL';
 
+  /// Planned Risk-to-Reward ratio from Entry, SL, and TP
   double? get riskRewardRatio {
     if (entry != null && sl != null && tp != null && entry != sl) {
       final risk = (entry! - sl!).abs();
@@ -83,6 +88,8 @@ class Trade {
       'why': why,
       'note': note,
       'image_path': imagePath,
+      'image_path_after': imagePathAfter,
+      'account_id': accountId ?? 'acc_real',
     };
   }
 
@@ -102,6 +109,8 @@ class Trade {
       why: map['why'] as String?,
       note: map['note'] as String?,
       imagePath: map['image_path'] as String?,
+      imagePathAfter: map['image_path_after'] as String?,
+      accountId: map['account_id'] as String? ?? 'acc_real',
     );
   }
 
@@ -118,6 +127,8 @@ class Trade {
     String? why,
     String? note,
     String? imagePath,
+    String? imagePathAfter,
+    String? accountId,
   }) {
     return Trade(
       id: id ?? this.id,
@@ -132,6 +143,8 @@ class Trade {
       why: why ?? this.why,
       note: note ?? this.note,
       imagePath: imagePath ?? this.imagePath,
+      imagePathAfter: imagePathAfter ?? this.imagePathAfter,
+      accountId: accountId ?? this.accountId,
     );
   }
 }

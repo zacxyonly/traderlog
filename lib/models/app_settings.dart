@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'trading_account.dart';
 
 class AppSettings {
   final String traderName;
@@ -10,6 +11,13 @@ class AppSettings {
   final double usdToIdrRate;
   final ThemeMode themeMode;
   final List<String> symbols;
+
+  // Multi-Account & Security
+  final String activeAccountId;
+  final List<TradingAccount> accounts;
+  final String? pinCode;
+  final bool isBiometricEnabled;
+  final String? lastBackupDate;
 
   static const List<String> defaultSymbols = [
     'XAU/USD',
@@ -32,7 +40,22 @@ class AppSettings {
     this.usdToIdrRate = 17998.0,
     this.themeMode = ThemeMode.system,
     List<String>? symbols,
-  }) : symbols = symbols ?? List.from(defaultSymbols);
+    this.activeAccountId = 'acc_real',
+    List<TradingAccount>? accounts,
+    this.pinCode,
+    this.isBiometricEnabled = false,
+    this.lastBackupDate,
+  })  : symbols = symbols ?? List.from(defaultSymbols),
+        accounts = accounts ?? TradingAccount.defaultAccounts();
+
+  TradingAccount get activeAccount {
+    return accounts.firstWhere(
+      (a) => a.id == activeAccountId,
+      orElse: () => accounts.isNotEmpty ? accounts.first : TradingAccount.defaultAccounts().first,
+    );
+  }
+
+  bool get isPinSet => pinCode != null && pinCode!.trim().isNotEmpty;
 
   AppSettings copyWith({
     String? traderName,
@@ -43,6 +66,11 @@ class AppSettings {
     double? usdToIdrRate,
     ThemeMode? themeMode,
     List<String>? symbols,
+    String? activeAccountId,
+    List<TradingAccount>? accounts,
+    String? pinCode,
+    bool? isBiometricEnabled,
+    String? lastBackupDate,
   }) {
     return AppSettings(
       traderName: traderName ?? this.traderName,
@@ -53,6 +81,11 @@ class AppSettings {
       usdToIdrRate: usdToIdrRate ?? this.usdToIdrRate,
       themeMode: themeMode ?? this.themeMode,
       symbols: symbols ?? List.from(this.symbols),
+      activeAccountId: activeAccountId ?? this.activeAccountId,
+      accounts: accounts ?? List.from(this.accounts),
+      pinCode: pinCode ?? this.pinCode,
+      isBiometricEnabled: isBiometricEnabled ?? this.isBiometricEnabled,
+      lastBackupDate: lastBackupDate ?? this.lastBackupDate,
     );
   }
 
@@ -66,6 +99,11 @@ class AppSettings {
       'usd_to_idr_rate': usdToIdrRate.toString(),
       'theme_mode': themeMode.name,
       'symbols': jsonEncode(symbols),
+      'active_account_id': activeAccountId,
+      'accounts': TradingAccount.encodeList(accounts),
+      'pin_code': pinCode ?? '',
+      'is_biometric_enabled': isBiometricEnabled ? 'true' : 'false',
+      'last_backup_date': lastBackupDate ?? '',
     };
   }
 
@@ -85,6 +123,17 @@ class AppSettings {
       } catch (_) {}
     }
 
+    final accounts = TradingAccount.decodeList(map['accounts']);
+    final activeAccId = map['active_account_id']?.isNotEmpty == true
+        ? map['active_account_id']!
+        : 'acc_real';
+
+    final pin = (map['pin_code']?.trim().isNotEmpty == true)
+        ? map['pin_code']!.trim()
+        : null;
+
+    final isBio = map['is_biometric_enabled'] == 'true';
+
     return AppSettings(
       traderName: map['trader_name']?.trim().isNotEmpty == true
           ? map['trader_name']!
@@ -100,6 +149,11 @@ class AppSettings {
       usdToIdrRate: double.tryParse(map['usd_to_idr_rate'] ?? '') ?? 17998.0,
       themeMode: mode,
       symbols: syms,
+      activeAccountId: activeAccId,
+      accounts: accounts,
+      pinCode: pin,
+      isBiometricEnabled: isBio,
+      lastBackupDate: map['last_backup_date'],
     );
   }
 }

@@ -199,52 +199,97 @@ class TradeCard extends StatelessWidget {
                           ),
                         ],
 
-                        // Image attachment chip if available
-                        if (trade.imagePath != null &&
-                            trade.imagePath!.isNotEmpty) ...[
+                        // Image attachments (Before & After)
+                        if ((trade.imagePath != null && trade.imagePath!.isNotEmpty) ||
+                            (trade.imagePathAfter != null && trade.imagePathAfter!.isNotEmpty)) ...[
                           const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: () {
-                              ImageViewerDialog.show(
-                                context,
-                                trade.imagePath!,
-                                '${trade.sym} (${trade.sideString})',
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.darkSoft
-                                    : AppColors.lightSoft,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: borderColor),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.photo_outlined,
-                                    size: 15,
-                                    color: AppColors.primary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Lihat Screenshot Chart',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark
-                                          ? AppColors.primaryLight
-                                          : AppColors.primaryDark,
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              if (trade.imagePath != null && trade.imagePath!.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    ImageViewerDialog.show(
+                                      context,
+                                      trade.imagePath!,
+                                      '${trade.sym} (Before Entry)',
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 9,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppColors.darkSoft : AppColors.lightSoft,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: borderColor),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.photo_camera_back_outlined,
+                                          size: 14,
+                                          color: AppColors.primary,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          'Setup (Before)',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark
+                                                ? AppColors.primaryLight
+                                                : AppColors.primaryDark,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
+                                ),
+                              if (trade.imagePathAfter != null && trade.imagePathAfter!.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    ImageViewerDialog.show(
+                                      context,
+                                      trade.imagePathAfter!,
+                                      '${trade.sym} (After Trade)',
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 9,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? AppColors.darkSoft : AppColors.lightSoft,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: borderColor),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_outline_rounded,
+                                          size: 14,
+                                          color: AppColors.winText,
+                                        ),
+                                        SizedBox(width: 5),
+                                        Text(
+                                          'Outcome (After)',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.winText,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ],

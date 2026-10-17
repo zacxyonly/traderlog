@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
+import '../models/trading_account.dart';
 import '../providers/trade_provider.dart';
 import '../services/csv_service.dart';
 import '../utils/app_strings.dart';
@@ -16,7 +18,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  int _selectedCategoryIndex = 0; // 0: Profil, 1: Tampilan, 2: Simbol, 3: Data
+  int _selectedCategoryIndex = 0; // 0: Profil, 1: Akun, 2: Keamanan, 3: Tampilan, 4: Simbol, 5: Data
 
   static const List<Map<String, String>> _accountCurrencies = [
     {'code': 'USD', 'symbol': '\$', 'name': 'US Dollar'},
@@ -69,9 +71,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    final settings = context.read<TradeProvider>().settings;
+    final provider = context.read<TradeProvider>();
+    final settings = provider.settings;
     _nameController.text = settings.traderName;
-    _capController.text = settings.initialCapital.toStringAsFixed(0);
+    _capController.text = provider.activeAccount.initialCapital.toStringAsFixed(0);
     _fxController.text = _formatRate(settings.usdToIdrRate);
   }
 
@@ -133,7 +136,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final cap = double.tryParse(_capController.text.trim());
     if (cap != null && cap > 0) {
       final provider = context.read<TradeProvider>();
-      provider.updateSettings(provider.settings.copyWith(initialCapital: cap));
+      final updated = provider.activeAccount.copyWith(initialCapital: cap);
+      provider.updateAccount(updated);
     }
   }
 
@@ -208,7 +212,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await CSVService.exportTrades(
         trades: provider.trades,
-        initialCapital: provider.settings.initialCapital,
+        initialCapital: provider.activeAccount.initialCapital,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -222,7 +226,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error export CSV: $e')),
+          SnackBar(content: Text('Gagal mengekspor CSV: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _backupToGoogleDrive(String lang) async {
+    final provider = context.read<TradeProvider>();
+    final trades = provider.allTrades;
+    if (trades.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.tr('no_trades_export', lang))),
+      );
+      return;
+    }
+
+    try {
+      final nowStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+      final accountName = provider.activeAccount.name.replaceAll(' ', '_');
+      final fileName = 'TraderLog_CloudBackup_${accountName}_$nowStr.csv';
+
+      await CSVService.exportTrades(
+        trades: trades,
+        initialCapital: provider.activeAccount.initialCapital,
+        customFileName: fileName,
+        shareText: 'TraderLog Cloud Backup ($accountName)',
+      );
+
+      await provider.recordCloudBackup();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.primary,
+            content: Text('Cadangan disiapkan. Pilih Google Drive pada menu berbagi.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal membuat cadangan cloud: $e')),
         );
       }
     }
@@ -242,66 +286,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (!mounted) return;
       final provider = context.read<TradeProvider>();
-
       final parseResult = CSVService.parseCSV(
         content,
         existingTrades: provider.trades,
       );
 
+      if (!mounted) return;
+
       if (parseResult.trades.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              lang == 'en'
-                  ? 'No new valid trades. Skipped: ${parseResult.skipped}, duplicates: ${parseResult.duplicates}'
-                  : 'Tidak ada trade baru yang valid. Dilewati: ${parseResult.skipped}, duplikat: ${parseResult.duplicates}',
+              parseResult.duplicates > 0
+                  ? 'Semua data di file CSV sudah ada di jurnal (${parseResult.duplicates} duplikat).'
+                  : 'Tidak ada data trade valid yang dapat diimpor.',
             ),
           ),
         );
         return;
       }
 
-      // Show Import Confirmation Dialog
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(AppStrings.tr('import_csv', lang)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                lang == 'en'
-                    ? 'Found ${parseResult.trades.length} valid trades.\n'
-                        '${parseResult.duplicates > 0 ? "• Duplicates: ${parseResult.duplicates}\n" : ""}'
-                        '${parseResult.skipped > 0 ? "• Skipped rows: ${parseResult.skipped}\n" : ""}'
-                    : 'Terbaca ${parseResult.trades.length} trade valid.\n'
-                        '${parseResult.duplicates > 0 ? "• Duplikat: ${parseResult.duplicates}\n" : ""}'
-                        '${parseResult.skipped > 0 ? "• Baris dilewati: ${parseResult.skipped}\n" : ""}',
-                style: const TextStyle(fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                lang == 'en' ? 'Select import method:' : 'Pilih metode impor:',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
+          title: Text(lang == 'en' ? 'Import Confirmation' : 'Konfirmasi Impor CSV'),
+          content: Text(
+            lang == 'en'
+                ? 'Found ${parseResult.trades.length} new trades.\n(${parseResult.duplicates} duplicates skipped, ${parseResult.skipped} invalid rows skipped).\n\nChoose import method:'
+                : 'Ditemukan ${parseResult.trades.length} trade baru.\n(${parseResult.duplicates} duplikat dilewati, ${parseResult.skipped} baris tidak valid dilewati).\n\nPilih metode impor:',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: Text(AppStrings.tr('cancel', lang)),
             ),
-            TextButton(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () {
                 Navigator.of(ctx).pop();
-                provider.importTrades(parseResult.trades, replace: false);
+                context
+                    .read<TradeProvider>()
+                    .importTrades(parseResult.trades, replace: false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
                       lang == 'en'
-                          ? '${parseResult.trades.length} trades merged successfully'
-                          : '${parseResult.trades.length} trade berhasil digabungkan',
+                          ? 'Successfully imported ${parseResult.trades.length} trades'
+                          : '${parseResult.trades.length} trade berhasil digabungkan ke jurnal',
                     ),
                   ),
                 );
@@ -391,8 +425,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SnackBar(
                   content: Text(
                     lang == 'en'
-                        ? 'All trade logs have been cleared'
-                        : 'Semua trade telah dihapus',
+                        ? 'All trade logs in this account have been cleared'
+                        : 'Semua trade pada akun ini telah dihapus',
                   ),
                 ),
               );
@@ -404,6 +438,166 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSetPinDialog(String lang, {bool isChanging = false}) {
+    final pin1Ctrl = TextEditingController();
+    final pin2Ctrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(AppStrings.tr(isChanging ? 'change_pin' : 'setup_pin_title', lang)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: pin1Ctrl,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: AppStrings.tr('setup_pin_title', lang),
+                  counterText: '',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: pin2Ctrl,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: AppStrings.tr('confirm_pin_title', lang),
+                  counterText: '',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(AppStrings.tr('cancel', lang)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final p1 = pin1Ctrl.text.trim();
+                final p2 = pin2Ctrl.text.trim();
+                if (p1.length == 4 && p1 == p2) {
+                  context.read<TradeProvider>().setPinCode(p1);
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(AppStrings.tr(isChanging ? 'pin_changed' : 'pin_enabled', lang)),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(AppStrings.tr('pin_mismatch', lang)),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Simpan PIN'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAddAccountDialog(BuildContext context, String lang) {
+    final nameCtrl = TextEditingController();
+    final capCtrl = TextEditingController(text: '1000');
+    String type = 'real';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              title: Text(AppStrings.tr('add_new_account', lang)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: AppStrings.tr('account_name', lang),
+                      hintText: AppStrings.tr('account_name_hint', lang),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: type,
+                    decoration: InputDecoration(
+                      labelText: AppStrings.tr('account_type', lang),
+                    ),
+                    items: [
+                      DropdownMenuItem(value: 'real', child: Text(AppStrings.tr('type_real', lang))),
+                      DropdownMenuItem(value: 'demo', child: Text(AppStrings.tr('type_demo', lang))),
+                      DropdownMenuItem(value: 'prop_firm', child: Text(AppStrings.tr('type_prop', lang))),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => type = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: capCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: AppStrings.tr('account_capital', lang),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text(AppStrings.tr('cancel', lang)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final name = nameCtrl.text.trim();
+                    final cap = double.tryParse(capCtrl.text.trim()) ?? 1000.0;
+                    if (name.isNotEmpty) {
+                      final provider = context.read<TradeProvider>();
+                      final newAcc = TradingAccount(
+                        id: 'acc_${DateTime.now().millisecondsSinceEpoch}',
+                        name: name,
+                        type: type,
+                        initialCapital: cap,
+                        currency: provider.settings.accountCurrency,
+                      );
+                      provider.addAccount(newAcc);
+                      _capController.text = cap.toStringAsFixed(0);
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(AppStrings.tr('account_created', lang))),
+                      );
+                    }
+                  },
+                  child: Text(AppStrings.tr('add_symbol', lang)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -419,9 +613,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final tradeProvider = context.watch<TradeProvider>();
     final settings = tradeProvider.settings;
     final lang = settings.languageCode;
+    final activeAcc = tradeProvider.activeAccount;
 
     final categories = [
       {'icon': Icons.person_outline_rounded, 'label': AppStrings.tr('cat_profile', lang)},
+      {'icon': Icons.account_balance_wallet_outlined, 'label': AppStrings.tr('cat_accounts', lang)},
+      {'icon': Icons.lock_outline_rounded, 'label': AppStrings.tr('cat_security', lang)},
       {'icon': Icons.palette_outlined, 'label': AppStrings.tr('cat_appearance', lang)},
       {'icon': Icons.candlestick_chart_outlined, 'label': AppStrings.tr('cat_symbols', lang)},
       {'icon': Icons.cloud_sync_outlined, 'label': AppStrings.tr('cat_data', lang)},
@@ -433,7 +630,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(14, 16, 14, 120),
           children: [
-            // Top Category Tabs
+            // Top Scrollable Category Tabs Bar
             Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(4),
@@ -442,16 +639,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: borderColor),
               ),
-              child: Row(
-                children: List.generate(categories.length, (idx) {
-                  final cat = categories[idx];
-                  final isSelected = _selectedCategoryIndex == idx;
-                  return Expanded(
-                    child: GestureDetector(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: List.generate(categories.length, (idx) {
+                    final cat = categories[idx];
+                    final isSelected = _selectedCategoryIndex == idx;
+                    return GestureDetector(
                       onTap: () => setState(() => _selectedCategoryIndex = idx),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
                         decoration: BoxDecoration(
                           color: isSelected ? cardColor : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
@@ -465,19 +664,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ]
                               : null,
                         ),
-                        child: Column(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               cat['icon'] as IconData,
-                              size: 18,
+                              size: 16,
                               color: isSelected ? AppColors.primary : mutedColor,
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(width: 6),
                             Text(
                               cat['label'] as String,
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 12,
                                 fontWeight: isSelected
                                     ? FontWeight.w800
                                     : FontWeight.w600,
@@ -487,9 +686,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       ),
-                    ),
-                  );
-                }),
+                    );
+                  }),
+                ),
               ),
             ),
 
@@ -562,13 +761,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Modal Awal
+                  // Modal Awal (Akun Aktif)
                   _buildLabel(
-                    AppStrings.tr(
-                      'initial_capital_label',
-                      lang,
-                      params: {'curr': settings.accountCurrency},
-                    ),
+                    '${AppStrings.tr("initial_capital_label", lang, params: {"curr": activeAcc.currency})} (${activeAcc.name})',
                     mutedColor,
                   ),
                   TextField(
@@ -743,8 +938,291 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-            // Category 1: Tampilan & Bahasa
+            // Category 1: Multi-Akun
             if (_selectedCategoryIndex == 1)
+              _buildCard(
+                cardColor,
+                borderColor,
+                isDark,
+                [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        AppStrings.tr('cat_accounts', lang),
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: Text(AppStrings.tr('add_new_account', lang)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => _showAddAccountDialog(context, lang),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: settings.accounts.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (ctx, idx) {
+                      final acc = settings.accounts[idx];
+                      final isActive = acc.id == settings.activeAccountId;
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isActive ? AppColors.primary.withOpacity(0.12) : softColor,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isActive ? AppColors.primary : borderColor,
+                            width: isActive ? 1.6 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Radio<String>(
+                              value: acc.id,
+                              groupValue: settings.activeAccountId,
+                              activeColor: AppColors.primary,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  tradeProvider.switchAccount(val);
+                                  _capController.text = acc.initialCapital.toStringAsFixed(0);
+                                }
+                              },
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        acc.name,
+                                        style: TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: textColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          acc.typeLabel,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'Modal Awal: ${Formatters.formatAmount(acc.initialCapital, currency: acc.currency)}',
+                                    style: TextStyle(fontSize: 12, color: mutedColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (settings.accounts.length > 1)
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: AppColors.lose, size: 20),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (dCtx) => AlertDialog(
+                                      title: Text(AppStrings.tr('delete_account', lang)),
+                                      content: Text(
+                                        AppStrings.tr(
+                                          'confirm_delete_account',
+                                          lang,
+                                          params: {'acc': acc.name},
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(dCtx).pop(),
+                                          child: Text(AppStrings.tr('cancel', lang)),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(dCtx).pop();
+                                            tradeProvider.deleteAccount(acc.id);
+                                          },
+                                          child: Text(
+                                            AppStrings.tr('delete', lang),
+                                            style: const TextStyle(color: AppColors.lose),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+
+            // Category 2: Keamanan & PIN
+            if (_selectedCategoryIndex == 2)
+              _buildCard(
+                cardColor,
+                borderColor,
+                isDark,
+                [
+                  Text(
+                    AppStrings.tr('security_title', lang),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // PIN Lock Toggle & Options
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: softColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.pin_outlined, color: AppColors.primary, size: 22),
+                                const SizedBox(width: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      AppStrings.tr('pin_lock_title', lang),
+                                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor),
+                                    ),
+                                    Text(
+                                      settings.isPinSet ? 'PIN Aktif' : 'PIN Tidak Aktif',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: settings.isPinSet ? AppColors.winText : mutedColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Switch(
+                              value: settings.isPinSet,
+                              activeColor: AppColors.primary,
+                              onChanged: (val) {
+                                if (val) {
+                                  _showSetPinDialog(lang);
+                                } else {
+                                  tradeProvider.setPinCode(null);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(AppStrings.tr('pin_disabled', lang))),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                        if (settings.isPinSet) ...[
+                          const SizedBox(height: 12),
+                          const Divider(height: 1),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                icon: const Icon(Icons.edit_outlined, size: 16),
+                                label: Text(AppStrings.tr('change_pin', lang)),
+                                onPressed: () => _showSetPinDialog(lang, isChanging: true),
+                              ),
+                              const Spacer(),
+                              TextButton.icon(
+                                icon: const Icon(Icons.lock_open_rounded, size: 16, color: AppColors.lose),
+                                label: Text(
+                                  AppStrings.tr('disable_pin', lang),
+                                  style: const TextStyle(color: AppColors.lose),
+                                ),
+                                onPressed: () => tradeProvider.setPinCode(null),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Biometric Toggle
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: softColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.fingerprint_rounded, color: AppColors.primary, size: 24),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppStrings.tr('biometric_title', lang),
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textColor),
+                                ),
+                                SizedBox(
+                                  width: MediaQuery.of(context).size.width * 0.55,
+                                  child: Text(
+                                    AppStrings.tr('biometric_sub', lang),
+                                    style: TextStyle(fontSize: 11.5, color: mutedColor),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Switch(
+                          value: settings.isBiometricEnabled,
+                          activeColor: AppColors.primary,
+                          onChanged: settings.isPinSet
+                              ? (val) => tradeProvider.setBiometricEnabled(val)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+            // Category 3: Tampilan & Bahasa
+            if (_selectedCategoryIndex == 3)
               _buildCard(
                 cardColor,
                 borderColor,
@@ -761,23 +1239,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                     }).toList(),
                     onChanged: (val) {
-                      if (val != null) {
-                        _setLanguage(val);
-                      }
+                      if (val != null) _setLanguage(val);
                     },
                     cardColor: cardColor,
                     softColor: softColor,
                     borderColor: borderColor,
                     textColor: textColor,
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
 
+                  // Tema Tampilan (Segment)
                   _buildLabel(AppStrings.tr('theme_mode', lang), mutedColor),
                   Container(
-                    padding: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
                       color: softColor,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(color: borderColor),
                     ),
                     child: Row(
                       children: [
@@ -785,7 +1263,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ThemeMode.system,
                           AppStrings.tr('theme_system', lang),
                           settings.themeMode,
-                          cardColor,
+                          isDark ? AppColors.darkCard : AppColors.lightCard,
                           textColor,
                           mutedColor,
                         ),
@@ -793,7 +1271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ThemeMode.light,
                           AppStrings.tr('theme_light', lang),
                           settings.themeMode,
-                          cardColor,
+                          isDark ? AppColors.darkCard : AppColors.lightCard,
                           textColor,
                           mutedColor,
                         ),
@@ -801,7 +1279,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ThemeMode.dark,
                           AppStrings.tr('theme_dark', lang),
                           settings.themeMode,
-                          cardColor,
+                          isDark ? AppColors.darkCard : AppColors.lightCard,
                           textColor,
                           mutedColor,
                         ),
@@ -811,29 +1289,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-            // Category 2: Simbol Trading
-            if (_selectedCategoryIndex == 2)
+            // Category 4: Simbol Trading
+            if (_selectedCategoryIndex == 4)
               _buildCard(
                 cardColor,
                 borderColor,
                 isDark,
                 [
-                  Text(
-                    AppStrings.tr('symbols_title', lang),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: textColor,
+                  _buildLabel(AppStrings.tr('symbols_title', lang), mutedColor),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      AppStrings.tr('symbols_sub', lang),
+                      style: TextStyle(fontSize: 12.5, color: mutedColor),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    AppStrings.tr('symbols_sub', lang),
-                    style: TextStyle(fontSize: 12.5, color: mutedColor),
-                  ),
-                  const SizedBox(height: 12),
 
-                  // Chips List
+                  // Active Symbols Wrap
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -878,24 +1350,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: _addSymbol,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
-                          ),
+                              horizontal: 16, vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(13),
                           ),
-                          elevation: 0,
                         ),
+                        onPressed: _addSymbol,
                         child: Text(
                           AppStrings.tr('add_symbol', lang),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
@@ -903,104 +1372,144 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-            // Category 3: Data & Cadangan
-            if (_selectedCategoryIndex == 3)
-              _buildCard(
-                cardColor,
-                borderColor,
-                isDark,
-                [
-                  Text(
-                    AppStrings.tr('data_backup_title', lang),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: textColor,
-                    ),
+            // Category 5: Data & Cloud (Google Drive)
+            if (_selectedCategoryIndex == 5)
+              Column(
+                children: [
+                  // Google Drive Cloud Backup Card
+                  _buildCard(
+                    cardColor,
+                    borderColor,
+                    isDark,
+                    [
+                      Row(
+                        children: [
+                          const Icon(Icons.cloud_upload_outlined, color: AppColors.primary, size: 24),
+                          const SizedBox(width: 10),
+                          Text(
+                            AppStrings.tr('cloud_backup_title', lang),
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        AppStrings.tr('cloud_backup_sub', lang),
+                        style: TextStyle(fontSize: 12.5, color: mutedColor),
+                      ),
+                      if (settings.lastBackupDate != null && settings.lastBackupDate!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          AppStrings.tr(
+                            'last_backup_label',
+                            lang,
+                            params: {'date': DateFormat('d MMM yyyy, HH:mm').format(DateTime.parse(settings.lastBackupDate!))},
+                          ),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primaryLight),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.add_to_drive_rounded, size: 18),
+                          label: Text(AppStrings.tr('backup_google_drive', lang)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => _backupToGoogleDrive(lang),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: softColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppStrings.tr('backup_guide_title', lang),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(AppStrings.tr('backup_step_1', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
+                            Text(AppStrings.tr('backup_step_2', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
+                            Text(AppStrings.tr('backup_step_3', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    AppStrings.tr('data_backup_sub', lang),
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: mutedColor,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  // Export Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.download_outlined, size: 20),
-                      label: Text(
-                        AppStrings.tr('export_csv', lang),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                  // Local CSV Backup Card
+                  _buildCard(
+                    cardColor,
+                    borderColor,
+                    isDark,
+                    [
+                      _buildLabel(AppStrings.tr('data_backup_title', lang), mutedColor),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Text(
+                          AppStrings.tr('data_backup_sub', lang),
+                          style: TextStyle(fontSize: 12.5, color: mutedColor),
                         ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        elevation: 0,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.file_upload_outlined, size: 18),
+                              label: Text(AppStrings.tr('export_csv', lang)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 11),
+                                side: BorderSide(color: borderColor),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => _exportCSV(lang),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.file_download_outlined, size: 18),
+                              label: Text(AppStrings.tr('import_csv', lang)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 11),
+                                side: BorderSide(color: borderColor),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => _importCSV(lang),
+                            ),
+                          ),
+                        ],
                       ),
-                      onPressed: () => _exportCSV(lang),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Import Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.upload_outlined, size: 20),
-                      label: Text(
-                        AppStrings.tr('import_csv', lang),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: textColor,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        side: BorderSide(color: borderColor),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: () => _importCSV(lang),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Reset All Trades
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: () => _confirmResetTrades(lang),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        foregroundColor: AppColors.lose,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: borderColor),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.delete_forever, size: 18, color: AppColors.lose),
+                          label: Text(
+                            AppStrings.tr('delete_all_trades', lang),
+                            style: const TextStyle(color: AppColors.lose, fontWeight: FontWeight.w700),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            side: BorderSide(color: AppColors.lose.withOpacity(0.5)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => _confirmResetTrades(lang),
                         ),
                       ),
-                      child: Text(
-                        AppStrings.tr('delete_all_trades', lang),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -1011,16 +1520,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildCard(
-    Color cardColor,
-    Color borderColor,
-    bool isDark,
-    List<Widget> children,
-  ) {
+      Color cardColor, Color borderColor, bool isDark, List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(

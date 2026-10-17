@@ -20,11 +20,11 @@ class CSVImportResult {
 }
 
 class CSVService {
-  /// Export trades to CSV and prompt native Share Sheet / Save dialog
-  static Future<String> exportTrades({
+  /// Generate CSV string with UTF-8 BOM
+  static String generateCSV({
     required List<Trade> trades,
     required double initialCapital,
-  }) async {
+  }) {
     final List<List<dynamic>> rows = [];
 
     // Header
@@ -46,7 +46,6 @@ class CSVService {
     ]);
 
     double equity = initialCapital;
-    // Trades should be sorted chronologically for cumulative equity calculation
     final sortedTrades = List<Trade>.from(trades)
       ..sort((a, b) => a.date.compareTo(b.date));
 
@@ -73,11 +72,20 @@ class CSVService {
     }
 
     final csvData = const ListToCsvConverter().convert(rows);
-    // Add UTF-8 BOM so Excel opens it with correct encoding
-    final csvWithBom = '\uFEFF$csvData';
+    return '\uFEFF$csvData';
+  }
+
+  /// Export trades to CSV and prompt native Share Sheet / Save dialog
+  static Future<String> exportTrades({
+    required List<Trade> trades,
+    required double initialCapital,
+    String? customFileName,
+    String? shareText,
+  }) async {
+    final csvWithBom = generateCSV(trades: trades, initialCapital: initialCapital);
 
     final tempDir = await getTemporaryDirectory();
-    final fileName =
+    final fileName = customFileName ??
         'traderlog_${Formatters.formatDate(DateTime.now())}.csv';
     final file = File('${tempDir.path}/$fileName');
     await file.writeAsString(csvWithBom);
@@ -85,6 +93,7 @@ class CSVService {
     // Share the file
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'text/csv')],
+      text: shareText,
       subject: 'Traderlog Backup CSV',
     );
 

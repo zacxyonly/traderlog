@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
+import 'account_switcher_sheet.dart';
 import 'equity_sparkline.dart';
 
 class HeroSummaryCard extends StatelessWidget {
@@ -65,13 +66,34 @@ class HeroSummaryCard extends StatelessWidget {
                         letterSpacing: 0.2,
                       ),
                     ),
-                    Text(
-                      AppStrings.tr('hero_app_name', lang),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.heroSubtitle,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
+                    GestureDetector(
+                      onTap: () => AccountSwitcherSheet.show(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.14),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '[${provider.activeAccount.typeLabel}] ${provider.activeAccount.name}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 16,
+                              color: Colors.white70,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

@@ -28,7 +28,7 @@
 
 <p align="center">
   <a href="https://github.com/zacxyonly/traderlog/releases/latest">
-    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.3.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
+    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.4.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
   </a>
   <a href="https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml">
     <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-CI_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
@@ -45,19 +45,28 @@ Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQ
 
 ---
 
-## 🌟 Fitur Unggulan
+## 🌟 Fitur Unggulan (v1.4.0)
 
-| Modul | Deskripsi Kemampuan |
-| :--- | :--- |
-| **⚡ Live Risk:Reward Calculator** | Menghitung rasio Risk to Reward secara otomatis dan real-time saat Anda mengetik Entry Price, Stop Loss (SL), dan Take Profit (TP). |
-| **📈 Kurva Modal & Analisis Mendalam** | Grafik kurva equity akumulatif interaktif dengan kalkulasi Win Rate, Profit Factor, Expectancy, Average Win/Loss, Max Drawdown, dan Streak beruntun. |
-| **💱 Kurs Otomatis & Multi-Currency** | Dukungan mata uang akun (USD, IDR, USDC, USDT, EUR, GBP, JPY, SGD, AUD) serta sinkronisasi kurs live otomatis 1-tap via open FX market API. |
-| **📸 Lampiran Screenshot Chart** | Sematkan gambar grafik chart analisis teknikal langsung dari Galeri perangkat atau Kamera, lengkap dengan image viewer zoomable layar penuh. |
-| **🌐 Bilingual (ID & EN)** | Beralih instan antara **Bahasa Indonesia** 🇮🇩 dan **English** 🇬🇧 di seluruh menu, navigasi, dialog, dan formulir. |
-| **⚙️ Tab Pengaturan Terkategori** | Menu pengaturan terbagi rapi ke 4 kategori: **Profil**, **Tampilan**, **Simbol**, dan **Data**. |
-| **👤 Label Akun / Trader Dinamis** | Kustomisasi nama trader atau nama akun (tampil dinamis di kartu Hero, e.g. *by Zacxy*). |
-| **🔄 Cadangan & Migrasi CSV** | Ekspor seluruh histori trading ke file CSV standar (kompatibel Excel & Google Sheets) serta fitur Impor cerdas dengan deteksi duplikat otomatis. |
-| **🌙 Palet Desain Emerald & Dark Navy** | Desain bertema gelap elegan yang nyaman di mata untuk sesi trading maraton di malam hari, dilengkapi opsi mode terang (Light Mode) dan sistem otomatis. |
+### 1. 📊 Analisis & Evaluasi (Tab Ringkasan)
+* **📈 Grafik Equity Curve Interaktif**: Visualisasi garis pertumbuhan modal akumulatif yang dinamis dengan baseline modal awal, penanda titik tertinggi (*All-Time Peak*), garis *scrub* sentuh real-time, dan tooltip info PnL per trade.
+* **🎯 Metrik Inti Kuantitatif Otomatis**: Perhitungan otomatis presisi untuk:
+  - **Win Rate (%)** & Rasio Menang/Kalah/BE
+  - **Profit Factor (PF)** (Gross Profit / Gross Loss)
+  - **Rata-rata R:R Aktual (Payoff Ratio)** (Rata-rata profit transaksi menang dibanding rata-rata loss transaksi kalah)
+  - **Max Drawdown** (Penurunan saldo terdalam dari puncak, ditampilkan dalam % dan nominal mata uang)
+* **🗓️ Kalender PnL (Heatmap)**: Tampilan kisi kalender bulanan berwarna hijau (*Green Day / Profit*) dan merah (*Red Day / Loss*) per tanggal untuk memantau konsistensi harian secara visual. Dilengkapi bar ringkasan bulanan dan *bottom sheet* detail transaksi saat tanggal disentuh.
+
+### 2. 📝 Optimalisasi Form Pencatatan (Tab Jurnal)
+* **📸 Dua Slot Gambar (Before & After)**: Memisahkan foto analisis sebelum entry (*Setup*) dan sesudah trade selesai (*Outcome / Evaluasi Reaksi Harga*) untuk review trading yang objektif dan mendalam.
+* **🏷️ Tag Cepat Setup & Emosi (Chips)**: Tombol pilihan sekali-klik untuk konfirmasi teknikal (*BOS, CHOCH, FVG, Liquidity, Breakout, SnR, Trendline*) serta kondisi psikologi trader (*Disiplin, FOMO, Revenge Trade, Overlot, Early Exit, Overtrading*).
+* **🧮 Kalkulator PnL & Nilai Pip Otomatis**: Tombol kalkulator bantu untuk menghitung estimasi pip selisih harga dan profit/loss berdasarkan instrumen (Forex, Gold/XAU, Crypto/Index), posisi (Buy/Sell), lot size, entry, dan exit/TP/SL, lengkap dengan tombol 1-klik untuk memasukkan hasil langsung ke form.
+
+### 3. 🛡️ Portofolio, Akun & Keamanan (Tab Atur)
+* **👥 Multi-Akun (Switcher)**: Kemampuan memisahkan catatan transaksi antara akun **Real**, **Demo**, dan **Evaluasi / Prop Firm**, atau membuat akun kustom. Dilengkapi *switcher* 1-tap di kartu saldo utama maupun di pengaturan.
+* **🔐 Kunci Biometrik & 4-Digit PIN**: Pengamanan layar pembuka (*SecurityLockScreen*) dengan 4-digit PIN dan sensor sidik jari perangkat via `local_auth` untuk menjaga kerahasiaan riwayat finansial Anda.
+* **☁️ Cadangan Cloud Sederhana**: Selain ekspor berkas CSV lokal, sediakan opsi pencadangan instan ke **Google Drive** dengan panduan 3-langkah visual agar riwayat trading aman saat berganti perangkat.
+* **💱 Kurs Otomatis & Multi-Currency**: Dukungan mata uang akun (USD, IDR, USDC, USDT, EUR, GBP, JPY, SGD, AUD) serta sinkronisasi kurs live otomatis via open FX market API.
+* **🌐 Bilingual Lengkap (ID & EN)**: Beralih instan antara Bahasa Indonesia 🇮🇩 dan English 🇬🇧 di seluruh menu, grafik, kalender, dan pesan dialog.
 
 ---
 
@@ -67,18 +76,19 @@ Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQ
 ┌─────────────────────────────────┐   ┌─────────────────────────────────┐   ┌─────────────────────────────────┐
 │           JURNAL TRADE          │   │        RINGKASAN PERFORMA       │   │        PENGATURAN (ATUR)        │
 ├─────────────────────────────────┤   ├─────────────────────────────────┤   ├─────────────────────────────────┤
-│ [ Total Akun ]     $1,450.00    │   │ Periode: [Semua] [30 Hari] [7h] │   │ [Profil] [Tampilan] [Simbol] [Data]
-│ by Zacxy       Rp 26.097.100    │   │                                 │   │                                 │
-│                                 │   │  Total: 28      Win Rate: 68%   │   │ Nama Akun / Trader: [ Zacxy   ] │
-│ 🔍 Cari symbol atau setup...    │   │  P/L: +$450     PF: 2.14        │   │ Modal Awal (USD)  : [ 1000    ] │
-│ [Semua] [WIN] [LOSE] [BE]       │   │                                 │   │ Kurs IDR/USD      : [ 17998   ] │
-│                                 │   │ ─── Kurva Equity (Sparkline) ── │   │                                 │
-│ ▾ Oktober 2026      +$320.00    │   │  Expectancy: +$16.07 / trade    │   │ Pilihan Bahasa:                 │
-│  • XAU/USD BUY       +$150.00   │   │  Max Drawdown: -5.2%            │   │  (•) Bahasa ID   ( ) English    │
-│    Entry: 2650 | Lot: 0.10      │   │  Rata-rata RR: 1:2.45           │   │                                 │
-│    Setup: M15 FVG Retest        │   │                                 │   │ Cadangan & Data:                │
-│    [📷 Lihat Screenshot Chart]  │   │ ▾ Performa Per Symbol           │   │  [ 📤 Ekspor CSV ]               │
-│                                 │   │  XAU/USD: 16 trades (75% Win)   │   │  [ 📥 Impor CSV  ]               │
+│ [ Akun Real Utama ▾ ]           │   │ Periode: [Semua] [30 Hari] [7h] │   │ [Profil] [Akun] [Keamanan] ...  │
+│ [ Total Akun ]     $1,450.00    │   │                                 │   │                                 │
+│ by Zacxy       Rp 26.097.100    │   │  Win Rate: 68%   PF: 2.14       │   │ Multi-Akun Portofolio:          │
+│                                 │   │  R:R Aktual: 1:2.40  DD: -4.8%  │   │  [•] Akun Real Utama (Active)   │
+│ 🔍 Cari symbol, setup, emosi... │   │                                 │   │  [ ] Akun Latihan Demo          │
+│ [Semua] [WIN] [LOSE] [BE]       │   │ ── Grafik Equity Curve (Scrub) ─│   │  [ ] Evaluasi Prop Firm         │
+│                                 │   │  Modal: $1,000 | Puncak: $1,620 │   │                                 │
+│ ▾ Oktober 2026      +$320.00    │   │                                 │   │ Keamanan & Privasi:             │
+│  • XAU/USD BUY       +$150.00   │   │ ── Kalender PnL Konsistensi ─── │   │  [x] Kunci Aplikasi dengan PIN  │
+│    Entry: 2650 | Lot: 0.10      │   │   S  M  T  W  T  F  S           │   │  [x] Buka dengan Sidik Jari     │
+│    Tags: [BOS] [FVG] [Disiplin] │   │  [+][+][-][+][+][-][+]          │   │                                 │
+│    [📷 Setup]  [📷 Outcome]     │   │  Win Days: 14 | Lose Days: 5    │   │ Cadangan Google Drive & CSV:    │
+│                                 │   │  Net PnL Bulan Ini: +$420.00    │   │  [ ☁️ Simpan ke Google Drive ]   │
 └─────────────────────────────────┘   └─────────────────────────────────┘   └─────────────────────────────────┘
 ```
 
@@ -90,7 +100,8 @@ TraderLog dibangun menggunakan teknologi dan pustaka terbaik dalam ekosistem Flu
 
 - **Framework**: [Flutter](https://flutter.dev) (v3.24.5 - Channel Stable)
 - **Programming Language**: [Dart](https://dart.dev) (v3.5.4)
-- **Local Database**: [sqflite](https://pub.dev/packages/sqflite) dengan engine SQLite native
+- **Local Database**: [sqflite](https://pub.dev/packages/sqflite) dengan engine SQLite native & automated migration schema
+- **Biometric Security**: [local_auth](https://pub.dev/packages/local_auth) (Fingerprint & Face biometric prompt)
 - **State Management**: [provider](https://pub.dev/packages/provider) (arsitektur reaktif)
 - **Path Resolution**: [path_provider](https://pub.dev/packages/path_provider) & [path](https://pub.dev/packages/path)
 - **File System & Sharing**: [share_plus](https://pub.dev/packages/share_plus) & [file_picker](https://pub.dev/packages/file_picker)
@@ -106,42 +117,48 @@ traderlog/
 ├── .github/
 │   └── workflows/
 │       └── build_apk.yml          # Otomasi kompilasi APK rilis via GitHub Actions (Manual)
-├── android/                       # Konfigurasi native Android, Manifest & Resource icon
+├── android/                       # Konfigurasi native Android, Manifest, FragmentActivity & Icon
 │   └── app/src/main/res/
 │       ├── icon_512.png           # Master artwork ikon resolusi tinggi
-│       └── mipmap-*/              # Launcher icon terkompilasi untuk seluruh DPI perangkat
+│       └── mipmap-*/              # Adaptive icon terkompilasi untuk seluruh DPI perangkat
 ├── lib/
 │   ├── constants/
 │   │   └── app_colors.dart        # Palet warna primer (Emerald, Navy, Wine Red, Amber)
 │   ├── database/
-│   │   └── db_helper.dart         # Skema tabel SQLite, migrasi kolom & query persistensi
+│   │   └── db_helper.dart         # Skema SQLite v2, migrasi kolom multi-akun & foto after
 │   ├── models/
-│   │   ├── app_settings.dart      # Model konfigurasi akun, kurs mata uang, tema & simbol
-│   │   └── trade.dart             # Model data transaksi, kalkulasi rasio RR & enum status
+│   │   ├── app_settings.dart      # Model konfigurasi akun, PIN, biometrik, kurs, & tema
+│   │   ├── trade.dart             # Model data transaksi, foto before/after, & rasio RR
+│   │   └── trading_account.dart   # Model multi-akun (Real, Demo, Prop Firm)
 │   ├── providers/
-│   │   └── trade_provider.dart    # State controller untuk kalkulasi analitik & manipulasi trade
+│   │   └── trade_provider.dart    # Controller analitik, kurva equity, kalender PnL, & PIN lock
 │   ├── screens/
-│   │   ├── journal_screen.dart    # Daftar transaksi per bulan, search bar & filter WIN/LOSE
+│   │   ├── journal_screen.dart    # Jurnal transaksi bulanan, filter emosi, setup & pencarian
 │   │   ├── main_navigation_screen.dart # Navigasi melayang dengan blur effect & Quick FAB
-│   │   ├── settings_screen.dart   # Pengaturan 4 kategori (Profil, Tampilan, Simbol, Data)
-│   │   ├── summary_screen.dart    # Dashboard statistik, kurva modal & rincian per pair
-│   │   └── trade_form_sheet.dart  # Modal bottom sheet input trade dengan live RR calculator
+│   │   ├── security_lock_screen.dart # Layar pembuka PIN 4-digit & autentikasi sidik jari
+│   │   ├── settings_screen.dart   # Pengaturan 6 kategori (Profil, Akun, Keamanan, Tampilan, Simbol, Data)
+│   │   ├── summary_screen.dart    # Dashboard ringkasan: Equity Curve, Heatmap Kalender & Metrik
+│   │   └── trade_form_sheet.dart  # Form input trade: Slot Before/After, Chip emosi, & Kalkulator PnL
 │   ├── services/
-│   │   └── csv_service.dart       # Algoritma parser CSV, validasi data & deteksi duplikat
+│   │   ├── csv_service.dart       # Algoritma parser CSV, validasi data & deteksi duplikat
+│   │   └── currency_service.dart  # Integrasi kurs live otomatis multi-currency
 │   ├── utils/
 │   │   ├── app_strings.dart       # Kamus lokalisasi dwibahasa (Indonesian & English)
-│   │   └── formatters.dart        # Formatting mata uang (USD, IDR), persentase, & waktu
+│   │   └── formatters.dart        # Formatting mata uang (USD, IDR), persentase, & tanggal
 │   ├── widgets/
-│   │   ├── equity_sparkline.dart  # CustomPainter rendering kurva modal bergradien halus
-│   │   ├── hero_summary_card.dart # Kartu hero saldo total akun & konversi kurs IDR
+│   │   ├── account_switcher_sheet.dart # Modal switcher akun real, demo, dan prop firm
+│   │   ├── hero_summary_card.dart # Kartu hero saldo total akun & badge active account
 │   │   ├── image_viewer_dialog.dart # Modal preview screenshot chart interaktif (zoom & pan)
+│   │   ├── interactive_equity_curve.dart # Grafik equity interaktif dengan scrub & peak marker
+│   │   ├── pnl_calculator_sheet.dart # Lembar kalkulator bantu PnL & nilai pip otomatis
+│   │   ├── pnl_calendar_heatmap.dart # Kalender visual PnL bulanan (Green/Red days)
 │   │   ├── stat_card.dart         # Komponen metrik ringkasan kartu statistik
-│   │   └── trade_card.dart        # Komponen kartu detail histori trade
-│   └── main.dart                  # Entry point aplikasi Flutter & MultiProvider initialization
+│   │   └── trade_card.dart        # Komponen kartu detail histori trade & Before/After chips
+│   └── main.dart                  # Entry point aplikasi Flutter, Lock check & MultiProvider
 ├── test/
-│   └── widget_test.dart           # Unit test kalkulasi RR, model settings, CSV & lokalisasi
+│   └── widget_test.dart           # Unit test kalkulasi RR, multi-akun, CSV, PIN & lokalisasi
 ├── LICENSE                        # Lisensi open-source MIT
-└── pubspec.yaml                   # Manifest paket dan aset dependensi Flutter
+└── pubspec.yaml                   # Manifest paket dan dependensi Flutter v1.4.0+5
 ```
 
 ---
@@ -165,10 +182,11 @@ cd traderlog
 flutter pub get
 ```
 
-### 4. Menjalankan Unit Test
-Verifikasi integritas kode dan kalkulasi matematis:
+### 4. Menjalankan Unit Test & Analisis Kode
+Verifikasi integritas kode, kalkulasi metrik kuantitatif, dan fungsi keamanan:
 ```bash
 flutter test
+flutter analyze
 ```
 
 ### 5. Menjalankan Aplikasi di Emulator / HP
@@ -214,7 +232,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
 
 - **Zero Telemetry**: Aplikasi tidak mengirimkan analitik, pelacak, atau data apa pun ke server luar.
 - **Offline Storage**: Database SQLite tersimpan di sandbox aplikasi lokal pada memori internal perangkat Android Anda.
-- **Full Ownership**: Anda memegang kendali 100% atas data jurnal Anda kapan pun melalui fitur ekspor CSV.
+- **Biometric & PIN Lock**: Akses jurnal diamankan dengan 4-digit PIN dan sensor sidik jari lokal melalui Android BiometricPrompt API.
+- **Full Ownership**: Anda memegang kendali 100% atas data jurnal Anda kapan pun melalui fitur ekspor CSV dan pencadangan Google Drive pribadi Anda.
 
 ---
 
