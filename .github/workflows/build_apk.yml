@@ -49,13 +49,14 @@ jobs:
       - name: Rename APK for clarity
         run: |
           mkdir -p release-output
-          cp build/app/outputs/flutter-apk/app-release.apk release-output/TraderLog-v1.0.0.apk
+          TAG_NAME="${GITHUB_REF_NAME:-latest}"
+          cp build/app/outputs/flutter-apk/app-release.apk "release-output/TraderLog-${TAG_NAME}.apk"
 
       - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TraderLog-Release-APK
-          path: release-output/TraderLog-v1.0.0.apk
+          path: release-output/TraderLog-*.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -63,5 +64,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: release-output/TraderLog-v1.0.0.apk
+          files: release-output/TraderLog-*.apk
           generate_release_notes: true
