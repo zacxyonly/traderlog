@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/trade_provider.dart';
+import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 import '../widgets/equity_sparkline.dart';
 import '../widgets/hero_summary_card.dart';
@@ -30,6 +31,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
     final provider = context.watch<TradeProvider>();
     final summary = provider.getSummaryStats(_selectedPeriod);
 
+    final lang = provider.settings.languageCode;
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -49,9 +52,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
               ),
               child: Row(
                 children: [
-                  _buildPeriodButton('all', 'Semua', cardColor, textColor, mutedColor),
-                  _buildPeriodButton('30', '30 hari', cardColor, textColor, mutedColor),
-                  _buildPeriodButton('7', '7 hari', cardColor, textColor, mutedColor),
+                  _buildPeriodButton('all', AppStrings.tr('period_all', lang), cardColor, textColor, mutedColor),
+                  _buildPeriodButton('30', AppStrings.tr('period_30', lang), cardColor, textColor, mutedColor),
+                  _buildPeriodButton('7', AppStrings.tr('period_7', lang), cardColor, textColor, mutedColor),
                 ],
               ),
             ),
@@ -69,7 +72,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Belum ada trade pada periode ini.',
+                      AppStrings.tr('empty_period', lang),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 15,
@@ -86,14 +89,14 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 children: [
                   Expanded(
                     child: StatCard(
-                      label: 'Total trade',
+                      label: AppStrings.tr('total_trades', lang),
                       value: summary.totalTrades.toString(),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: StatCard(
-                      label: 'Win rate',
+                      label: AppStrings.tr('win_rate', lang),
                       value: Formatters.formatPercent(summary.winRate, signed: false),
                       progressBarPercentage: summary.winRate,
                       progressBarColor: AppColors.primary,
@@ -106,7 +109,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 children: [
                   Expanded(
                     child: StatCard(
-                      label: 'Profit / loss',
+                      label: AppStrings.tr('profit_loss', lang),
                       value: Formatters.formatUSDSigned(summary.netProfit),
                       valueColor: summary.netProfit > 0
                           ? AppColors.winText
@@ -118,7 +121,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: StatCard(
-                      label: 'Profit factor',
+                      label: AppStrings.tr('profit_factor', lang),
                       value: summary.profitFactor != null
                           ? (summary.profitFactor!.isInfinite
                               ? '∞'
@@ -150,7 +153,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Kurva Equity',
+                        AppStrings.tr('equity_curve', lang),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -186,13 +189,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 child: Column(
                   children: [
                     _buildRow(
-                      'Win / Break even / Loss',
+                      AppStrings.tr('win_be_loss', lang),
                       '${summary.winCount} / ${summary.beCount} / ${summary.loseCount}',
                       textColor,
                       borderColor,
                     ),
                     _buildRow(
-                      'Rata-rata win',
+                      AppStrings.tr('avg_win', lang),
                       summary.winCount > 0
                           ? Formatters.formatUSD(summary.avgWin)
                           : '-',
@@ -200,7 +203,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       borderColor,
                     ),
                     _buildRow(
-                      'Rata-rata loss',
+                      AppStrings.tr('avg_loss', lang),
                       summary.loseCount > 0
                           ? Formatters.formatUSD(summary.avgLoss)
                           : '-',
@@ -208,7 +211,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       borderColor,
                     ),
                     _buildRow(
-                      'Expectancy per trade',
+                      AppStrings.tr('expectancy', lang),
                       Formatters.formatUSDSigned(summary.expectancy),
                       summary.expectancy > 0
                           ? AppColors.winText
@@ -218,7 +221,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       borderColor,
                     ),
                     _buildRow(
-                      'Trade terbaik',
+                      AppStrings.tr('best_trade', lang),
                       Formatters.formatUSDSigned(summary.bestTrade),
                       summary.bestTrade > 0
                           ? AppColors.winText
@@ -228,7 +231,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       borderColor,
                     ),
                     _buildRow(
-                      'Trade terburuk',
+                      AppStrings.tr('worst_trade', lang),
                       Formatters.formatUSDSigned(summary.worstTrade),
                       summary.worstTrade > 0
                           ? AppColors.winText
@@ -238,13 +241,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       borderColor,
                     ),
                     _buildRow(
-                      'Max drawdown',
+                      AppStrings.tr('max_drawdown', lang),
                       Formatters.formatPercent(summary.maxDrawdown, signed: false),
                       summary.maxDrawdown > 0 ? AppColors.loseText : textColor,
                       borderColor,
                     ),
                     _buildRow(
-                      'Rata-rata RR',
+                      AppStrings.tr('avg_rr', lang),
                       summary.avgRR > 0
                           ? '1:${summary.avgRR.toStringAsFixed(2)}'
                           : '-',
@@ -252,7 +255,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       borderColor,
                     ),
                     _buildRow(
-                      'Streak saat ini',
+                      AppStrings.tr('current_streak', lang),
                       summary.streakCount > 0
                           ? '${summary.streakCount} ${summary.streakType.toLowerCase()}'
                           : '-',
@@ -273,7 +276,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
                   child: Text(
-                    'Per Symbol',
+                    AppStrings.tr('per_symbol', lang),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -332,7 +335,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${sym.count} trade · win rate ${Formatters.formatPercent(sym.winRate, signed: false)}',
+                          '${sym.count} ${AppStrings.tr("trades_count", lang)} · win rate ${Formatters.formatPercent(sym.winRate, signed: false)}',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: mutedColor,

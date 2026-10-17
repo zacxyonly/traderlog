@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/trade.dart';
 import '../providers/trade_provider.dart';
+import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 
 class TradeFormSheet extends StatefulWidget {
@@ -161,10 +162,11 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
   }
 
   void _saveTrade() {
+    final lang = context.read<TradeProvider>().settings.languageCode;
     final plText = _plController.text.trim();
     if (plText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi profit/loss terlebih dahulu')),
+        SnackBar(content: Text(AppStrings.tr('fill_pl_first', lang))),
       );
       return;
     }
@@ -172,7 +174,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     final pl = double.tryParse(plText);
     if (pl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Format profit/loss tidak valid')),
+        SnackBar(content: Text(AppStrings.tr('invalid_pl', lang))),
       );
       return;
     }
@@ -204,12 +206,12 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     if (widget.tradeToEdit != null) {
       provider.updateTrade(trade);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trade berhasil diperbarui')),
+        SnackBar(content: Text(AppStrings.tr('trade_updated', lang))),
       );
     } else {
       provider.addTrade(trade);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trade berhasil disimpan')),
+        SnackBar(content: Text(AppStrings.tr('trade_saved', lang))),
       );
     }
 
@@ -217,15 +219,16 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
   }
 
   void _deleteTrade() {
+    final lang = context.read<TradeProvider>().settings.languageCode;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Trade'),
-        content: const Text('Apakah Anda yakin ingin menghapus trade ini?'),
+        title: Text(AppStrings.tr('delete_trade', lang)),
+        content: Text(AppStrings.tr('confirm_delete_trade', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           TextButton(
             onPressed: () {
@@ -236,13 +239,13 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     .deleteTrade(widget.tradeToEdit!.id);
                 Navigator.of(context).pop(); // Close sheet
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Trade telah dihapus')),
+                  SnackBar(content: Text(AppStrings.tr('trade_deleted', lang))),
                 );
               }
             },
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: AppColors.lose),
+            child: Text(
+              AppStrings.tr('delete', lang),
+              style: const TextStyle(color: AppColors.lose),
             ),
           ),
         ],
@@ -259,7 +262,9 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
 
-    final symbols = context.watch<TradeProvider>().settings.symbols;
+    final provider = context.watch<TradeProvider>();
+    final symbols = provider.settings.symbols;
+    final lang = provider.settings.languageCode;
     final isEdit = widget.tradeToEdit != null;
 
     final allSymbols = List<String>.from(symbols);
@@ -293,7 +298,9 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    isEdit ? 'Edit Trade' : 'Trade Baru',
+                    isEdit
+                        ? AppStrings.tr('edit_trade', lang)
+                        : AppStrings.tr('new_trade', lang),
                     style: TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
@@ -309,7 +316,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               const SizedBox(height: 12),
 
               // Tanggal & Waktu
-              _buildLabel('Tanggal & Waktu', mutedColor),
+              _buildLabel(AppStrings.tr('date_time', lang), mutedColor),
               InkWell(
                 onTap: _selectDateTime,
                 borderRadius: BorderRadius.circular(13),
@@ -341,7 +348,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               const SizedBox(height: 12),
 
               // Symbol
-              _buildLabel('Symbol / Pair', mutedColor),
+              _buildLabel(AppStrings.tr('symbol_pair', lang), mutedColor),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
@@ -376,7 +383,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               const SizedBox(height: 14),
 
               // Posisi (BUY / SELL)
-              _buildLabel('Posisi', mutedColor),
+              _buildLabel(AppStrings.tr('position', lang), mutedColor),
               Row(
                 children: [
                   Expanded(
@@ -451,10 +458,11 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Entry Price', mutedColor),
+                        _buildLabel(
+                            AppStrings.tr('entry_price', lang), mutedColor),
                         _buildTextField(
                           controller: _entryController,
-                          hint: 'mis. 2350.50',
+                          hint: lang == 'en' ? 'e.g. 2350.50' : 'mis. 2350.50',
                           softColor: softColor,
                           borderColor: borderColor,
                           textColor: textColor,
@@ -469,10 +477,11 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Lot Size', mutedColor),
+                        _buildLabel(
+                            AppStrings.tr('lot_size', lang), mutedColor),
                         _buildTextField(
                           controller: _lotController,
-                          hint: 'mis. 0.10',
+                          hint: lang == 'en' ? 'e.g. 0.10' : 'mis. 0.10',
                           softColor: softColor,
                           borderColor: borderColor,
                           textColor: textColor,
@@ -493,10 +502,11 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Stop Loss (SL)', mutedColor),
+                        _buildLabel(
+                            AppStrings.tr('stop_loss', lang), mutedColor),
                         _buildTextField(
                           controller: _slController,
-                          hint: 'mis. 2340.00',
+                          hint: lang == 'en' ? 'e.g. 2340.00' : 'mis. 2340.00',
                           softColor: softColor,
                           borderColor: borderColor,
                           textColor: textColor,
@@ -511,10 +521,11 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Take Profit (TP)', mutedColor),
+                        _buildLabel(
+                            AppStrings.tr('take_profit', lang), mutedColor),
                         _buildTextField(
                           controller: _tpController,
-                          hint: 'mis. 2370.00',
+                          hint: lang == 'en' ? 'e.g. 2370.00' : 'mis. 2370.00',
                           softColor: softColor,
                           borderColor: borderColor,
                           textColor: textColor,
@@ -530,7 +541,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
 
               // Live RR Indicator
               Text(
-                'Risk to Reward: ${_calculateLiveRR()}',
+                '${AppStrings.tr('risk_reward', lang)}: ${_calculateLiveRR()}',
                 style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -540,11 +551,10 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               const SizedBox(height: 12),
 
               // Profit / Loss (USD)
-              _buildLabel(
-                  'Profit / Loss (USD, gunakan tanda minus jika loss)', mutedColor),
+              _buildLabel(AppStrings.tr('pl_label', lang), mutedColor),
               _buildTextField(
                 controller: _plController,
-                hint: 'mis. 120 atau -50',
+                hint: AppStrings.tr('pl_hint', lang),
                 softColor: softColor,
                 borderColor: borderColor,
                 textColor: textColor,
@@ -556,10 +566,10 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               const SizedBox(height: 12),
 
               // Alasan ("Why")
-              _buildLabel('Alasan Ambil Trade (Setup / Konfirmasi)', mutedColor),
+              _buildLabel(AppStrings.tr('why_label', lang), mutedColor),
               _buildTextField(
                 controller: _whyController,
-                hint: 'mis. Break of structure di M15 + retest FVG',
+                hint: AppStrings.tr('why_hint', lang),
                 softColor: softColor,
                 borderColor: borderColor,
                 textColor: textColor,
@@ -568,10 +578,10 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               const SizedBox(height: 12),
 
               // Catatan ("Note")
-              _buildLabel('Catatan Tambahan', mutedColor),
+              _buildLabel(AppStrings.tr('note_label', lang), mutedColor),
               _buildTextField(
                 controller: _noteController,
-                hint: 'mis. Eksekusi disiplin, trailing stop di BE',
+                hint: AppStrings.tr('note_hint', lang),
                 softColor: softColor,
                 borderColor: borderColor,
                 textColor: textColor,
@@ -580,7 +590,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               const SizedBox(height: 14),
 
               // Screenshot Chart Attachment
-              _buildLabel('Screenshot Chart Analisis', mutedColor),
+              _buildLabel(AppStrings.tr('chart_screenshot', lang), mutedColor),
               if (_imagePath != null && _imagePath!.isNotEmpty) ...[
                 Stack(
                   alignment: Alignment.topRight,
@@ -616,7 +626,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.photo_library_outlined, size: 18),
-                      label: const Text('Dari Galeri'),
+                      label: Text(AppStrings.tr('from_gallery', lang)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         side: BorderSide(color: borderColor),
@@ -631,7 +641,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                      label: const Text('Buka Kamera'),
+                      label: Text(AppStrings.tr('open_camera', lang)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         side: BorderSide(color: borderColor),
@@ -661,7 +671,9 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     elevation: 0,
                   ),
                   child: Text(
-                    isEdit ? 'Simpan Perubahan' : 'Simpan Trade',
+                    isEdit
+                        ? AppStrings.tr('save_changes', lang)
+                        : AppStrings.tr('save_trade', lang),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -685,9 +697,9 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                         side: BorderSide(color: borderColor),
                       ),
                     ),
-                    child: const Text(
-                      'Hapus Trade',
-                      style: TextStyle(
+                    child: Text(
+                      AppStrings.tr('delete_trade', lang),
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),

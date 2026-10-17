@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traderlog/models/trade.dart';
 import 'package:traderlog/models/app_settings.dart';
 import 'package:traderlog/services/csv_service.dart';
+import 'package:traderlog/utils/app_strings.dart';
 
 void main() {
   group('Trade Model Tests', () {
@@ -102,8 +104,42 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       final settings = AppSettings();
       expect(settings.initialCapital, 1000.0);
       expect(settings.usdToIdrRate, 17998.0);
+      expect(settings.traderName, 'Zacxy');
+      expect(settings.languageCode, 'id');
       expect(settings.symbols.contains('XAU/USD'), true);
       expect(settings.symbols.contains('BTC/USD'), true);
     });
+
+    test('AppSettings serialization supports traderName and languageCode', () {
+      final settings = AppSettings(
+        initialCapital: 5000.0,
+        usdToIdrRate: 16500.0,
+        traderName: 'TraderPro',
+        languageCode: 'en',
+        themeMode: ThemeMode.dark,
+      );
+      final map = settings.toDatabaseMap();
+      final fromMap = AppSettings.fromDatabaseMap(map);
+
+      expect(fromMap.traderName, 'TraderPro');
+      expect(fromMap.languageCode, 'en');
+      expect(fromMap.initialCapital, 5000.0);
+      expect(fromMap.usdToIdrRate, 16500.0);
+      expect(fromMap.themeMode, ThemeMode.dark);
+    });
+  });
+
+  group('AppStrings Localization Tests', () {
+    test('Translates keys accurately in ID and EN', () {
+      expect(AppStrings.tr('nav_journal', 'id'), 'Jurnal');
+      expect(AppStrings.tr('nav_journal', 'en'), 'Journal');
+      expect(AppStrings.tr('cat_profile', 'id'), 'Profil');
+      expect(AppStrings.tr('cat_profile', 'en'), 'Profile');
+      expect(AppStrings.tr('cat_appearance', 'id'), 'Tampilan');
+      expect(AppStrings.tr('cat_appearance', 'en'), 'Display');
+      expect(AppStrings.tr('new_trade', 'id'), 'Trade Baru');
+      expect(AppStrings.tr('new_trade', 'en'), 'New Trade');
+    });
   });
 }
+

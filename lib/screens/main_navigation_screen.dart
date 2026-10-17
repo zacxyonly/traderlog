@@ -1,6 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
+import '../providers/trade_provider.dart';
+import '../utils/app_strings.dart';
 import 'journal_screen.dart';
 import 'summary_screen.dart';
 import 'settings_screen.dart';
@@ -28,6 +31,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+    final lang = context.watch<TradeProvider>().settings.languageCode;
 
     return Scaffold(
       extendBody: true,
@@ -90,19 +95,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   children: [
                     _buildNavItem(
                       index: 0,
-                      label: 'Jurnal',
+                      label: AppStrings.tr('nav_journal', lang),
                       icon: Icons.menu_book_rounded,
                       mutedColor: mutedColor,
                     ),
                     _buildNavItem(
                       index: 1,
-                      label: 'Ringkasan',
+                      label: AppStrings.tr('nav_summary', lang),
                       icon: Icons.bar_chart_rounded,
                       mutedColor: mutedColor,
                     ),
                     _buildNavItem(
                       index: 2,
-                      label: 'Atur',
+                      label: AppStrings.tr('nav_settings', lang),
                       icon: Icons.tune_rounded,
                       mutedColor: mutedColor,
                     ),

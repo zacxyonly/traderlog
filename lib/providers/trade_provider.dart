@@ -162,6 +162,14 @@ class TradeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateLanguage(String langCode) async {
+    await updateSettings(_settings.copyWith(languageCode: langCode));
+  }
+
+  Future<void> updateTraderName(String name) async {
+    await updateSettings(_settings.copyWith(traderName: name));
+  }
+
   Future<void> addSymbol(String symbol) async {
     final sym = symbol.trim().toUpperCase();
     if (sym.isNotEmpty && !_settings.symbols.contains(sym)) {

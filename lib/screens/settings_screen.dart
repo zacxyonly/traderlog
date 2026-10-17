@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/trade_provider.dart';
 import '../services/csv_service.dart';
+import '../utils/app_strings.dart';
+import '../utils/formatters.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,6 +16,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  int _selectedCategoryIndex = 0; // 0: Profil, 1: Tampilan, 2: Simbol, 3: Data
+
+  final _nameController = TextEditingController();
   final _capController = TextEditingController();
   final _fxController = TextEditingController();
   final _newSymbolController = TextEditingController();
@@ -22,16 +27,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     final settings = context.read<TradeProvider>().settings;
+    _nameController.text = settings.traderName;
     _capController.text = settings.initialCapital.toStringAsFixed(0);
     _fxController.text = settings.usdToIdrRate.toStringAsFixed(0);
   }
 
   @override
   void dispose() {
+    _nameController.dispose();
     _capController.dispose();
     _fxController.dispose();
     _newSymbolController.dispose();
     super.dispose();
+  }
+
+  void _saveTraderName() {
+    final name = _nameController.text.trim();
+    final provider = context.read<TradeProvider>();
+    provider.updateTraderName(name.isNotEmpty ? name : 'Trader');
   }
 
   void _saveCapital() {
@@ -55,6 +68,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     provider.updateSettings(provider.settings.copyWith(themeMode: mode));
   }
 
+  void _setLanguage(String langCode) {
+    final provider = context.read<TradeProvider>();
+    provider.updateLanguage(langCode);
+  }
+
   void _addSymbol() {
     final sym = _newSymbolController.text.trim().toUpperCase();
     if (sym.isNotEmpty) {
@@ -64,26 +82,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _confirmRemoveSymbol(String symbol) {
+  void _confirmRemoveSymbol(String symbol, String lang) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Symbol'),
+        title: Text(AppStrings.tr('delete_symbol_title', lang)),
         content: Text(
-            'Hapus symbol $symbol dari daftar cepat? Trade lama dengan symbol ini tetap aman.'),
+          AppStrings.tr(
+            'delete_symbol_msg',
+            lang,
+            params: {'s': symbol},
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               context.read<TradeProvider>().removeSymbol(symbol);
             },
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: AppColors.lose),
+            child: Text(
+              AppStrings.tr('delete', lang),
+              style: const TextStyle(color: AppColors.lose),
             ),
           ),
         ],
@@ -91,11 +114,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _exportCSV() async {
+  Future<void> _exportCSV(String lang) async {
     final provider = context.read<TradeProvider>();
     if (provider.trades.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Belum ada trade untuk diekspor')),
+        SnackBar(content: Text(AppStrings.tr('no_trades_export', lang))),
       );
       return;
     }
@@ -109,7 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${provider.trades.length} trade berhasil disiapkan untuk diekspor',
+              '${provider.trades.length} ${AppStrings.tr("trades_exported", lang)}',
             ),
           ),
         );
@@ -117,13 +140,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengekspor CSV: $e')),
+          SnackBar(content: Text('Error export CSV: $e')),
         );
       }
     }
   }
 
-  Future<void> _importCSV() async {
+  Future<void> _importCSV(String lang) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -147,7 +170,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Tidak ada trade baru yang valid. Dilewati: ${parseResult.skipped}, duplikat: ${parseResult.duplicates}',
+              lang == 'en'
+                  ? 'No new valid trades. Skipped: ${parseResult.skipped}, duplicates: ${parseResult.duplicates}'
+                  : 'Tidak ada trade baru yang valid. Dilewati: ${parseResult.skipped}, duplikat: ${parseResult.duplicates}',
             ),
           ),
         );
@@ -158,28 +183,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Impor Data CSV'),
+          title: Text(AppStrings.tr('import_csv', lang)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Terbaca ${parseResult.trades.length} trade valid.\n'
-                '${parseResult.duplicates > 0 ? "• Duplikat: ${parseResult.duplicates}\n" : ""}'
-                '${parseResult.skipped > 0 ? "• Baris dilewati: ${parseResult.skipped}\n" : ""}',
+                lang == 'en'
+                    ? 'Found ${parseResult.trades.length} valid trades.\n'
+                        '${parseResult.duplicates > 0 ? "• Duplicates: ${parseResult.duplicates}\n" : ""}'
+                        '${parseResult.skipped > 0 ? "• Skipped rows: ${parseResult.skipped}\n" : ""}'
+                    : 'Terbaca ${parseResult.trades.length} trade valid.\n'
+                        '${parseResult.duplicates > 0 ? "• Duplikat: ${parseResult.duplicates}\n" : ""}'
+                        '${parseResult.skipped > 0 ? "• Baris dilewati: ${parseResult.skipped}\n" : ""}',
                 style: const TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Pilih metode impor:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Text(
+                lang == 'en' ? 'Select import method:' : 'Pilih metode impor:',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Batal'),
+              child: Text(AppStrings.tr('cancel', lang)),
             ),
             TextButton(
               onPressed: () {
@@ -188,12 +217,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      '${parseResult.trades.length} trade berhasil digabungkan',
+                      lang == 'en'
+                          ? '${parseResult.trades.length} trades merged successfully'
+                          : '${parseResult.trades.length} trade berhasil digabungkan',
                     ),
                   ),
                 );
               },
-              child: const Text('Gabungkan'),
+              child: Text(lang == 'en' ? 'Merge' : 'Gabungkan'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -202,9 +233,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               onPressed: () {
                 Navigator.of(ctx).pop();
-                _confirmReplaceAll(parseResult);
+                _confirmReplaceAll(parseResult, lang);
               },
-              child: const Text('Ganti Semua'),
+              child: Text(lang == 'en' ? 'Replace All' : 'Ganti Semua'),
             ),
           ],
         ),
@@ -218,18 +249,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _confirmReplaceAll(CSVImportResult parseResult) {
+  void _confirmReplaceAll(CSVImportResult parseResult, String lang) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ganti Semua Trade?'),
-        content: const Text(
-          'Semua trade yang tersimpan saat ini akan dihapus dan digantikan dengan data dari CSV ini. Lanjutkan?',
+        title: Text(lang == 'en' ? 'Replace All Trades?' : 'Ganti Semua Trade?'),
+        content: Text(
+          lang == 'en'
+              ? 'All currently saved trades will be removed and replaced with data from this CSV. Continue?'
+              : 'Semua trade yang tersimpan saat ini akan dihapus dan digantikan dengan data dari CSV ini. Lanjutkan?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           TextButton(
             onPressed: () {
@@ -240,14 +273,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'Semua trade telah diganti dengan ${parseResult.trades.length} trade baru',
+                    lang == 'en'
+                        ? 'All trades replaced with ${parseResult.trades.length} new trades'
+                        : 'Semua trade telah diganti dengan ${parseResult.trades.length} trade baru',
                   ),
                 ),
               );
             },
-            child: const Text(
-              'Ganti Semua',
-              style: TextStyle(color: AppColors.lose),
+            child: Text(
+              lang == 'en' ? 'Replace All' : 'Ganti Semua',
+              style: const TextStyle(color: AppColors.lose),
             ),
           ),
         ],
@@ -255,31 +290,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _confirmResetTrades() {
+  void _confirmResetTrades(String lang) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus SEMUA Trade?'),
-        content: const Text(
-          'Tindakan ini akan menghapus seluruh data jurnal trading. '
-          'Pastikan Anda sudah mengekspor ke CSV jika memerlukan cadangan.',
-        ),
+        title: Text(AppStrings.tr('confirm_reset_title', lang)),
+        content: Text(AppStrings.tr('confirm_reset_sub', lang)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal'),
+            child: Text(AppStrings.tr('cancel', lang)),
           ),
           TextButton(
             onPressed: () {
               Navigator.of(ctx).pop();
               context.read<TradeProvider>().deleteAllTrades();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Semua trade telah dihapus')),
+                SnackBar(
+                  content: Text(
+                    lang == 'en'
+                        ? 'All trade logs have been cleared'
+                        : 'Semua trade telah dihapus',
+                  ),
+                ),
               );
             },
-            child: const Text(
-              'Hapus Semua',
-              style: TextStyle(color: AppColors.lose),
+            child: Text(
+              AppStrings.tr('delete', lang),
+              style: const TextStyle(color: AppColors.lose),
             ),
           ),
         ],
@@ -297,6 +335,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
 
     final settings = context.watch<TradeProvider>().settings;
+    final lang = settings.languageCode;
+
+    final categories = [
+      {'icon': Icons.person_outline_rounded, 'label': AppStrings.tr('cat_profile', lang)},
+      {'icon': Icons.palette_outlined, 'label': AppStrings.tr('cat_appearance', lang)},
+      {'icon': Icons.candlestick_chart_outlined, 'label': AppStrings.tr('cat_symbols', lang)},
+      {'icon': Icons.cloud_sync_outlined, 'label': AppStrings.tr('cat_data', lang)},
+    ];
 
     return Scaffold(
       body: SafeArea(
@@ -304,25 +350,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(14, 16, 14, 120),
           children: [
-            // Section 1: Modal Awal, Kurs, & Tema
+            // Top Category Tabs
             Container(
-              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(18),
+                color: softColor,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLabel('Modal awal (USD)', mutedColor),
+              child: Row(
+                children: List.generate(categories.length, (idx) {
+                  final cat = categories[idx];
+                  final isSelected = _selectedCategoryIndex == idx;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedCategoryIndex = idx),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        decoration: BoxDecoration(
+                          color: isSelected ? cardColor : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.12),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              cat['icon'] as IconData,
+                              size: 18,
+                              color: isSelected ? AppColors.primary : mutedColor,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              cat['label'] as String,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: isSelected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: isSelected ? textColor : mutedColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+            // Category 0: Profil & Akun
+            if (_selectedCategoryIndex == 0)
+              _buildCard(
+                cardColor,
+                borderColor,
+                isDark,
+                [
+                  _buildLabel(AppStrings.tr('trader_name', lang), mutedColor),
+                  TextField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                    decoration: _inputDecoration(
+                      softColor,
+                      borderColor,
+                      AppStrings.tr('trader_name_hint', lang),
+                    ),
+                    onChanged: (_) => _saveTraderName(),
+                    onSubmitted: (_) => _saveTraderName(),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 14),
+                    child: Text(
+                      lang == 'en'
+                          ? 'This name will be displayed in the hero chart header ("by ${settings.traderName}").'
+                          : 'Nama ini akan ditampilkan pada header kartu grafik utama ("by ${settings.traderName}").',
+                      style: TextStyle(fontSize: 12, color: mutedColor),
+                    ),
+                  ),
+
+                  _buildLabel(AppStrings.tr('initial_capital', lang), mutedColor),
                   TextField(
                     controller: _capController,
                     keyboardType:
@@ -333,13 +455,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: textColor,
                     ),
                     decoration: _inputDecoration(
-                        softColor, borderColor, '1000'),
+                      softColor,
+                      borderColor,
+                      '1000',
+                    ),
                     onSubmitted: (_) => _saveCapital(),
                     onChanged: (_) => _saveCapital(),
                   ),
                   const SizedBox(height: 14),
 
-                  _buildLabel('Kurs IDR per 1 USD', mutedColor),
+                  _buildLabel(AppStrings.tr('usd_idr_rate', lang), mutedColor),
                   TextField(
                     controller: _fxController,
                     keyboardType:
@@ -350,13 +475,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: textColor,
                     ),
                     decoration: _inputDecoration(
-                        softColor, borderColor, '17998'),
+                      softColor,
+                      borderColor,
+                      '17998',
+                    ),
                     onSubmitted: (_) => _saveFx(),
                     onChanged: (_) => _saveFx(),
                   ),
-                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Preview: \$1,000 = ${Formatters.formatIDR(1000.0 * settings.usdToIdrRate)}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryLight,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
 
-                  _buildLabel('Tema Tampilan', mutedColor),
+            // Category 1: Tampilan & Bahasa
+            if (_selectedCategoryIndex == 1)
+              _buildCard(
+                cardColor,
+                borderColor,
+                isDark,
+                [
+                  _buildLabel(AppStrings.tr('language_title', lang), mutedColor),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: softColor,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildToggleButton(
+                          'id',
+                          '🇮🇩 Bahasa Indonesia',
+                          lang,
+                          cardColor,
+                          textColor,
+                          mutedColor,
+                          (v) => _setLanguage(v),
+                        ),
+                        _buildToggleButton(
+                          'en',
+                          '🇬🇧 English',
+                          lang,
+                          cardColor,
+                          textColor,
+                          mutedColor,
+                          (v) => _setLanguage(v),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  _buildLabel(AppStrings.tr('theme_mode', lang), mutedColor),
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -367,7 +546,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         _buildThemeButton(
                           ThemeMode.system,
-                          'Otomatis',
+                          AppStrings.tr('theme_system', lang),
                           settings.themeMode,
                           cardColor,
                           textColor,
@@ -375,7 +554,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         _buildThemeButton(
                           ThemeMode.light,
-                          'Terang',
+                          AppStrings.tr('theme_light', lang),
                           settings.themeMode,
                           cardColor,
                           textColor,
@@ -383,7 +562,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         _buildThemeButton(
                           ThemeMode.dark,
-                          'Gelap',
+                          AppStrings.tr('theme_dark', lang),
                           settings.themeMode,
                           cardColor,
                           textColor,
@@ -394,36 +573,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 14),
 
-            // Section 2: Daftar Symbol
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            // Category 2: Simbol Trading
+            if (_selectedCategoryIndex == 2)
+              _buildCard(
+                cardColor,
+                borderColor,
+                isDark,
+                [
                   Text(
-                    'Daftar Symbol',
+                    AppStrings.tr('symbols_title', lang),
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: mutedColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
+                  Text(
+                    AppStrings.tr('symbols_sub', lang),
+                    style: TextStyle(fontSize: 12.5, color: mutedColor),
+                  ),
+                  const SizedBox(height: 12),
 
                   // Chips List
                   Wrap(
@@ -440,7 +611,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                         deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () => _confirmRemoveSymbol(sym),
+                        onDeleted: () => _confirmRemoveSymbol(sym, lang),
                         backgroundColor: softColor,
                         side: BorderSide(color: borderColor),
                         shape: RoundedRectangleBorder(
@@ -449,7 +620,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
 
                   // Add Symbol Input + Button
                   Row(
@@ -466,7 +637,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           decoration: _inputDecoration(
                             softColor,
                             borderColor,
-                            'Symbol baru, mis. NAS100',
+                            AppStrings.tr('new_symbol_hint', lang),
                           ),
                         ),
                       ),
@@ -485,63 +656,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           elevation: 0,
                         ),
-                        child: const Text(
-                          'Tambah',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+                        child: Text(
+                          AppStrings.tr('add_symbol', lang),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 14),
 
-            // Section 3: Data Management (CSV)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            // Category 3: Data & Cadangan
+            if (_selectedCategoryIndex == 3)
+              _buildCard(
+                cardColor,
+                borderColor,
+                isDark,
+                [
                   Text(
-                    'Data & Cadangan (CSV)',
+                    AppStrings.tr('data_backup_title', lang),
                     style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: mutedColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Data tersimpan di database SQLite lokal perangkat ini. Ekspor ke file CSV untuk cadangan atau dibuka di Excel / Google Sheets, lalu impor kembali kapan saja.',
+                    AppStrings.tr('data_backup_sub', lang),
                     style: TextStyle(
                       fontSize: 12.5,
                       color: mutedColor,
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
 
                   // Export Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.download_outlined, size: 20),
-                      label: const Text(
-                        'Ekspor CSV',
-                        style: TextStyle(
+                      label: Text(
+                        AppStrings.tr('export_csv', lang),
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                         ),
@@ -555,7 +713,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         elevation: 0,
                       ),
-                      onPressed: _exportCSV,
+                      onPressed: () => _exportCSV(lang),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -566,7 +724,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.upload_outlined, size: 20),
                       label: Text(
-                        'Impor CSV',
+                        AppStrings.tr('import_csv', lang),
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -580,16 +738,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                      onPressed: _importCSV,
+                      onPressed: () => _importCSV(lang),
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 20),
 
                   // Reset All Trades
                   SizedBox(
                     width: double.infinity,
                     child: TextButton(
-                      onPressed: _confirmResetTrades,
+                      onPressed: () => _confirmResetTrades(lang),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         foregroundColor: AppColors.lose,
@@ -598,9 +756,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           side: BorderSide(color: borderColor),
                         ),
                       ),
-                      child: const Text(
-                        'Hapus Semua Trade',
-                        style: TextStyle(
+                      child: Text(
+                        AppStrings.tr('delete_all_trades', lang),
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -609,9 +767,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCard(
+    Color cardColor,
+    Color borderColor,
+    bool isDark,
+    List<Widget> children,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       ),
     );
   }
@@ -648,6 +832,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(13),
         borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+      ),
+    );
+  }
+
+  Widget _buildToggleButton(
+    String val,
+    String label,
+    String currentVal,
+    Color activeBg,
+    Color textColor,
+    Color mutedText,
+    ValueChanged<String> onChanged,
+  ) {
+    final isSelected = currentVal == val;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onChanged(val),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    )
+                  ]
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isSelected ? textColor : mutedText,
+            ),
+          ),
+        ),
       ),
     );
   }

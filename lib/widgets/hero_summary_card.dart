@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/trade_provider.dart';
+import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 import 'equity_sparkline.dart';
 
@@ -19,6 +20,11 @@ class HeroSummaryCard extends StatelessWidget {
 
     final isProfit = pl >= 0;
     final plColor = isProfit ? const Color(0xFF6EE7B7) : const Color(0xFFFCA5A5);
+
+    final lang = provider.settings.languageCode;
+    final trader = provider.settings.traderName.trim().isNotEmpty
+        ? provider.settings.traderName.trim()
+        : 'Zacxy';
 
     return Container(
       width: double.infinity,
@@ -46,13 +52,13 @@ class HeroSummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Subtitle
-                const Row(
+                // Top Subtitle with dynamic Trader Name
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'by Zacxy',
-                      style: TextStyle(
+                      'by $trader',
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.heroSubtitle,
                         fontWeight: FontWeight.w600,
@@ -60,8 +66,8 @@ class HeroSummaryCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Traderlog',
-                      style: TextStyle(
+                      AppStrings.tr('hero_app_name', lang),
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.heroSubtitle,
                         fontWeight: FontWeight.w700,
@@ -73,9 +79,9 @@ class HeroSummaryCard extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 // Label
-                const Text(
-                  'Total akun',
-                  style: TextStyle(
+                Text(
+                  AppStrings.tr('hero_total_equity', lang),
+                  style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.heroLabel,
                     fontWeight: FontWeight.w600,

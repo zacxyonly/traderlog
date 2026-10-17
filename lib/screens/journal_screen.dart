@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/trade.dart';
 import '../providers/trade_provider.dart';
+import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 import '../widgets/hero_summary_card.dart';
 import '../widgets/trade_card.dart';
@@ -69,6 +70,8 @@ class _JournalScreenState extends State<JournalScreen> {
       monthlyTotalPL[monthKey] = (monthlyTotalPL[monthKey] ?? 0.0) + t.pl;
     }
 
+    final lang = provider.settings.languageCode;
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -95,7 +98,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Cari symbol atau alasan...',
+                    hintText: AppStrings.tr('search_hint', lang),
                     hintStyle: TextStyle(
                       fontSize: 14,
                       color: mutedColor,
@@ -144,10 +147,10 @@ class _JournalScreenState extends State<JournalScreen> {
                 ),
                 child: Row(
                   children: [
-                    _buildFilterButton('ALL', 'Semua', cardColor, textColor, mutedColor),
-                    _buildFilterButton('WIN', 'WIN', cardColor, AppColors.winText, mutedColor),
-                    _buildFilterButton('LOSE', 'LOSE', cardColor, AppColors.loseText, mutedColor),
-                    _buildFilterButton('BE', 'BE', cardColor, AppColors.beText, mutedColor),
+                    _buildFilterButton('ALL', AppStrings.tr('filter_all', lang), cardColor, textColor, mutedColor),
+                    _buildFilterButton('WIN', AppStrings.tr('filter_win', lang), cardColor, AppColors.winText, mutedColor),
+                    _buildFilterButton('LOSE', AppStrings.tr('filter_lose', lang), cardColor, AppColors.loseText, mutedColor),
+                    _buildFilterButton('BE', AppStrings.tr('filter_be', lang), cardColor, AppColors.beText, mutedColor),
                   ],
                 ),
               ),
@@ -166,7 +169,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Belum ada trade.',
+                        AppStrings.tr('empty_trades_title', lang),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -175,7 +178,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Tekan tombol + di pojok kanan bawah untuk mencatat trade pertama Anda.',
+                        AppStrings.tr('empty_trades_sub', lang),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
@@ -198,7 +201,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Tidak ada trade yang cocok dengan filter.',
+                        AppStrings.tr('no_filtered_trades', lang),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
