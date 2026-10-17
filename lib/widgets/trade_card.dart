@@ -155,17 +155,35 @@ class TradeCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(
-                              Formatters.formatAmountSigned(trade.pl, currency: currency),
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: plColor,
-                                letterSpacing: -0.3,
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  Formatters.formatAmountSigned(trade.pl, currency: currency),
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: plColor,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                if (trade.formattedPips.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    trade.formattedPips,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: plColor.withOpacity(0.85),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             Text(
-                              '${Formatters.formatPercent(changePercentage)} · RR ${trade.formattedRR}',
+                              '${Formatters.formatPercent(changePercentage)} · RR ${trade.formattedRealizedRR != '-' ? trade.formattedRealizedRR : trade.formattedRR}',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -176,14 +194,28 @@ class TradeCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
 
-                        // Sub row: Date · Cumulative Equity · Lot
-                        Text(
-                          '${Formatters.formatDateTime(trade.date)} · Equity ${Formatters.formatAmount(cumulativeEquity, currency: currency)}${trade.lot != null ? ' · ${trade.lot} lot' : ''}',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: mutedColor,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        // Sub row: Entry -> Exit & Date · Cumulative Equity · Lot
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${Formatters.formatDateTime(trade.date)} · Eq ${Formatters.formatAmount(cumulativeEquity, currency: currency)}${trade.lot != null ? ' · ${trade.lot} lot' : ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: mutedColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (trade.entry != null)
+                              Text(
+                                '${trade.entry}${trade.exit != null ? ' ➔ ${trade.exit}' : ''}',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: textColor.withOpacity(0.7),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
                         ),
 
                         // Setup / Reason ("Why")

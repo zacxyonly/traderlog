@@ -7,19 +7,31 @@ import '../models/trade.dart';
 import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
-import '../widgets/pnl_calculator_sheet.dart';
+import '../utils/pnl_calculator.dart';
 
 class TradeFormSheet extends StatefulWidget {
   final Trade? tradeToEdit;
+  final Trade? initialTrade;
 
-  const TradeFormSheet({super.key, this.tradeToEdit});
+  const TradeFormSheet({
+    super.key,
+    this.tradeToEdit,
+    this.initialTrade,
+  });
 
-  static Future<void> show(BuildContext context, {Trade? tradeToEdit}) {
+  static Future<void> show(
+    BuildContext context, {
+    Trade? tradeToEdit,
+    Trade? initialTrade,
+  }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => TradeFormSheet(tradeToEdit: tradeToEdit),
+      builder: (ctx) => TradeFormSheet(
+        tradeToEdit: tradeToEdit,
+        initialTrade: initialTrade,
+      ),
     );
   }
 
@@ -33,12 +45,18 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
   late TradeSide _side;
 
   final _entryController = TextEditingController();
+  final _exitController = TextEditingController();
   final _slController = TextEditingController();
   final _tpController = TextEditingController();
   final _lotController = TextEditingController();
   final _plController = TextEditingController();
   final _whyController = TextEditingController();
   final _noteController = TextEditingController();
+
+  PnlResult? _lastCalculatedPnl;
+  PnlResult? _plannedRisk;
+  PnlResult? _plannedReward;
+  bool _isUserEditedPl = false;
 
   String? _imagePath;
   String? _imagePathAfter;
@@ -72,14 +90,16 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
   void initState() {
     super.initState();
     final t = widget.tradeToEdit;
+    final init = widget.initialTrade;
     final provider = context.read<TradeProvider>();
 
     _selectedDate = t?.date ?? DateTime.now();
-    _side = t?.side ?? TradeSide.buy;
+    _side = t?.side ?? init?.side ?? TradeSide.buy;
 
     final symbols = provider.settings.symbols;
-    if (t != null && t.sym.isNotEmpty) {
-      _selectedSymbol = t.sym;
+    final activeSym = t?.sym ?? init?.sym;
+    if (activeSym != null && activeSym.isNotEmpty) {
+      _selectedSymbol = activeSym;
     } else if (symbols.isNotEmpty) {
       _selectedSymbol = symbols.first;
     } else {
@@ -88,6 +108,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
 
     if (t != null) {
       if (t.entry != null) _entryController.text = t.entry.toString();
+      if (t.exit != null) _exitController.text = t.exit.toString();
       if (t.sl != null) _slController.text = t.sl.toString();
       if (t.tp != null) _tpController.text = t.tp.toString();
       if (t.lot != null) _lotController.text = t.lot.toString();
@@ -96,19 +117,36 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       if (t.note != null) _noteController.text = t.note!;
       _imagePath = t.imagePath;
       _imagePathAfter = t.imagePathAfter;
+    } else if (init != null) {
+      if (init.entry != null) _entryController.text = init.entry.toString();
+      if (init.sl != null) _slController.text = init.sl.toString();
+      if (init.tp != null) _tpController.text = init.tp.toString();
+      if (init.lot != null) _lotController.text = init.lot.toString();
+      if (init.why != null) _whyController.text = init.why!;
     }
 
-    _entryController.addListener(_updateRR);
-    _slController.addListener(_updateRR);
-    _tpController.addListener(_updateRR);
+    _entryController.addListener(_onPriceOrLotChanged);
+    _exitController.addListener(_onPriceOrLotChanged);
+    _lotController.addListener(_onPriceOrLotChanged);
+    _slController.addListener(_onPriceOrLotChanged);
+    _tpController.addListener(_onPriceOrLotChanged);
+    _plController.addListener(_onPlManualChanged);
+
+    // Initial calculation if editing
+    _onPriceOrLotChanged(isInitial: true);
   }
 
   @override
   void dispose() {
-    _entryController.removeListener(_updateRR);
-    _slController.removeListener(_updateRR);
-    _tpController.removeListener(_updateRR);
+    _entryController.removeListener(_onPriceOrLotChanged);
+    _exitController.removeListener(_onPriceOrLotChanged);
+    _lotController.removeListener(_onPriceOrLotChanged);
+    _slController.removeListener(_onPriceOrLotChanged);
+    _tpController.removeListener(_onPriceOrLotChanged);
+    _plController.removeListener(_onPlManualChanged);
+
     _entryController.dispose();
+    _exitController.dispose();
     _slController.dispose();
     _tpController.dispose();
     _lotController.dispose();
@@ -118,8 +156,94 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     super.dispose();
   }
 
-  void _updateRR() {
-    setState(() {});
+  void _onPlManualChanged() {
+    if (_lastCalculatedPnl != null) {
+      final current = double.tryParse(_plController.text.trim());
+      if (current != null && (current - _lastCalculatedPnl!.pnl).abs() > 0.009) {
+        if (!_isUserEditedPl) {
+          setState(() {
+            _isUserEditedPl = true;
+          });
+        }
+      }
+    }
+  }
+
+  void _onPriceOrLotChanged({bool isInitial = false, bool forceAutoPl = false}) {
+    final entry = double.tryParse(_entryController.text.trim());
+    final exit = double.tryParse(_exitController.text.trim());
+    final lot = double.tryParse(_lotController.text.trim());
+    final sl = double.tryParse(_slController.text.trim());
+    final tp = double.tryParse(_tpController.text.trim());
+
+    if (entry != null && exit != null && lot != null && lot > 0) {
+      final calc = PnlCalculator.calculate(
+        symbol: _selectedSymbol,
+        side: _side,
+        entry: entry,
+        exit: exit,
+        lot: lot,
+      );
+      _lastCalculatedPnl = calc;
+      if (calc != null && (!isInitial || widget.tradeToEdit == null || forceAutoPl)) {
+        if (!_isUserEditedPl || forceAutoPl) {
+          _plController.text = calc.pnl.toStringAsFixed(2);
+          _isUserEditedPl = false;
+        }
+      }
+    } else {
+      _lastCalculatedPnl = null;
+    }
+
+    if (entry != null && sl != null && lot != null && lot > 0) {
+      _plannedRisk = PnlCalculator.calculateRisk(
+        symbol: _selectedSymbol,
+        side: _side,
+        entry: entry,
+        sl: sl,
+        lot: lot,
+      );
+    } else {
+      _plannedRisk = null;
+    }
+
+    if (entry != null && tp != null && lot != null && lot > 0) {
+      _plannedReward = PnlCalculator.calculateReward(
+        symbol: _selectedSymbol,
+        side: _side,
+        entry: entry,
+        tp: tp,
+        lot: lot,
+      );
+    } else {
+      _plannedReward = null;
+    }
+
+    if (mounted) setState(() {});
+  }
+
+  void _applyTpToExit() {
+    final tp = _tpController.text.trim();
+    if (tp.isNotEmpty) {
+      _exitController.text = tp;
+      _onPriceOrLotChanged(forceAutoPl: true);
+    }
+  }
+
+  void _applySlToExit() {
+    final sl = _slController.text.trim();
+    if (sl.isNotEmpty) {
+      _exitController.text = sl;
+      _onPriceOrLotChanged(forceAutoPl: true);
+    }
+  }
+
+  void _applyBeToExit() {
+    final entry = _entryController.text.trim();
+    if (entry.isNotEmpty) {
+      _exitController.text = entry;
+      _onPriceOrLotChanged(forceAutoPl: true);
+    }
   }
 
   void _toggleSetupTag(String tag) {
@@ -158,29 +282,6 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     setState(() {});
   }
 
-  void _openCalculator() {
-    final entry = double.tryParse(_entryController.text);
-    final exit = double.tryParse(_tpController.text) ?? double.tryParse(_slController.text);
-    final lot = double.tryParse(_lotController.text);
-    final provider = context.read<TradeProvider>();
-
-    PnlCalculatorSheet.show(
-      context: context,
-      side: _side,
-      initialEntry: entry,
-      initialExit: exit,
-      initialLot: lot,
-      symbol: _selectedSymbol,
-      currency: provider.settings.accountCurrency,
-      lang: provider.settings.languageCode,
-      onApply: (estimated) {
-        setState(() {
-          _plController.text = estimated.toStringAsFixed(2);
-        });
-      },
-    );
-  }
-
   String _calculateLiveRR() {
     final entry = double.tryParse(_entryController.text);
     final sl = double.tryParse(_slController.text);
@@ -189,6 +290,22 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     if (entry != null && sl != null && tp != null && entry != sl) {
       final risk = (entry - sl).abs();
       final reward = (tp - entry).abs();
+      if (risk > 0) {
+        final rr = reward / risk;
+        return '1:${rr.toStringAsFixed(2)}';
+      }
+    }
+    return '-';
+  }
+
+  String _calculateRealizedRR() {
+    final entry = double.tryParse(_entryController.text.trim());
+    final exit = double.tryParse(_exitController.text.trim());
+    final sl = double.tryParse(_slController.text.trim());
+
+    if (entry != null && exit != null && sl != null && entry != sl) {
+      final risk = (entry - sl).abs();
+      final reward = (exit - entry).abs();
       if (risk > 0) {
         final rr = reward / risk;
         return '1:${rr.toStringAsFixed(2)}';
@@ -271,6 +388,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
 
     final provider = context.read<TradeProvider>();
     final entry = double.tryParse(_entryController.text.trim());
+    final exit = double.tryParse(_exitController.text.trim());
     final sl = double.tryParse(_slController.text.trim());
     final tp = double.tryParse(_tpController.text.trim());
     final lot = double.tryParse(_lotController.text.trim());
@@ -284,6 +402,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       sym: _selectedSymbol,
       side: _side,
       entry: entry,
+      exit: exit,
       sl: sl,
       tp: tp,
       lot: lot,
@@ -543,8 +662,9 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Entry & Lot Size
+              // Entry & Exit Price (Auto PnL inputs)
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
@@ -569,6 +689,90 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildLabel(
+                                AppStrings.tr('exit_price', lang), mutedColor),
+                            // Quick chips to copy TP, SL, or BE
+                            Wrap(
+                              spacing: 3,
+                              children: [
+                                if (_tpController.text.trim().isNotEmpty)
+                                  InkWell(
+                                    onTap: _applyTpToExit,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.winText.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        AppStrings.tr('use_tp', lang),
+                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.winText),
+                                      ),
+                                    ),
+                                  ),
+                                if (_slController.text.trim().isNotEmpty)
+                                  InkWell(
+                                    onTap: _applySlToExit,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.loseText.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        AppStrings.tr('use_sl', lang),
+                                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.loseText),
+                                      ),
+                                    ),
+                                  ),
+                                if (_entryController.text.trim().isNotEmpty)
+                                  InkWell(
+                                    onTap: _applyBeToExit,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: mutedColor.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        AppStrings.tr('use_be', lang),
+                                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: mutedColor),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        _buildTextField(
+                          controller: _exitController,
+                          hint: lang == 'en' ? 'e.g. 2375.00' : 'mis. 2375.00',
+                          softColor: softColor,
+                          borderColor: borderColor,
+                          textColor: textColor,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Lot Size & R:R Summary
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         _buildLabel(
                             AppStrings.tr('lot_size', lang), mutedColor),
                         _buildTextField(
@@ -583,11 +787,59 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      height: 50,
+                      margin: const EdgeInsets.only(top: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: softColor,
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                AppStrings.tr('risk_reward', lang),
+                                style: TextStyle(fontSize: 11, color: mutedColor, fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                _calculateLiveRR(),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.primaryLight),
+                              ),
+                            ],
+                          ),
+                          if (_exitController.text.trim().isNotEmpty && _entryController.text.trim().isNotEmpty && _slController.text.trim().isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  AppStrings.tr('realized_rr', lang),
+                                  style: TextStyle(fontSize: 10.5, color: mutedColor, fontWeight: FontWeight.w500),
+                                ),
+                                Text(
+                                  _calculateRealizedRR(),
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.winText),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
 
-              // SL & TP
+              // SL & TP Inputs
               Row(
                 children: [
                   Expanded(
@@ -629,20 +881,82 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
 
-              // Live RR Indicator
-              Text(
-                '${AppStrings.tr('risk_reward', lang)}: ${_calculateLiveRR()}',
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryLight,
-                ),
-              ),
-              const SizedBox(height: 12),
+              // Planned Risk & Reward Management Card (Live Position Sizing)
+              if (_plannedRisk != null || _plannedReward != null) ...[
+                Builder(builder: (context) {
+                  final capital = provider.activeAccount.initialCapital;
+                  final riskNominal = _plannedRisk?.pnl.abs() ?? 0.0;
+                  final riskPct = capital > 0 ? (riskNominal / capital) * 100 : 0.0;
+                  final isOverlot = riskPct > 5.0;
 
-              // Profit / Loss with Calculator Button
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: isOverlot ? AppColors.lose.withOpacity(0.08) : softColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isOverlot ? AppColors.lose.withOpacity(0.4) : borderColor,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (_plannedRisk != null)
+                              Row(
+                                children: [
+                                  const Icon(Icons.shield_outlined, size: 14, color: AppColors.loseText),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${AppStrings.tr('risk_planned', lang)}: ${Formatters.formatAmountSigned(_plannedRisk!.pnl, currency: provider.settings.accountCurrency)} (${riskPct.toStringAsFixed(1)}%)',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: isOverlot ? AppColors.loseText : mutedColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            if (_plannedReward != null)
+                              Row(
+                                children: [
+                                  const Icon(Icons.flag_outlined, size: 14, color: AppColors.winText),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${AppStrings.tr('reward_planned', lang)}: ${Formatters.formatAmountSigned(_plannedReward!.pnl, currency: provider.settings.accountCurrency)}',
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.winText,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        if (isOverlot) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            AppStrings.tr('risk_warn_overlot', lang),
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.loseText,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              // Profit / Loss with Real-time Auto-Calculation
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -654,39 +968,75 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     ),
                     mutedColor,
                   ),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: _openCalculator,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 6, right: 4, bottom: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.calculate_outlined, size: 15, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            AppStrings.tr('calc_pnl_button', lang),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+                  if (_lastCalculatedPnl != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (_lastCalculatedPnl!.pnl >= 0 ? AppColors.winText : AppColors.loseText).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${_lastCalculatedPnl!.pnl >= 0 ? '⚡ +' : '⚡ '}${_lastCalculatedPnl!.formattedPips}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: _lastCalculatedPnl!.pnl >= 0 ? AppColors.winText : AppColors.loseText,
+                            ),
+                          ),
+                        ),
+                        if (_isUserEditedPl) ...[
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: () => _onPriceOrLotChanged(forceAutoPl: true),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.sync_rounded, size: 13, color: AppColors.primary),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    AppStrings.tr('sync_calc', lang),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ),
                 ],
               ),
               _buildTextField(
                 controller: _plController,
                 hint: AppStrings.tr('pl_hint', lang),
                 softColor: softColor,
-                borderColor: borderColor,
+                borderColor: _lastCalculatedPnl != null && !_isUserEditedPl
+                    ? (_lastCalculatedPnl!.pnl >= 0 ? AppColors.winText.withOpacity(0.5) : AppColors.loseText.withOpacity(0.5))
+                    : borderColor,
                 textColor: textColor,
                 keyboardType: const TextInputType.numberWithOptions(
                   signed: true,
                   decimal: true,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 12),
+                child: Text(
+                  AppStrings.tr('auto_calc_active', lang),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: mutedColor.withOpacity(0.7),
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

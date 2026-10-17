@@ -30,11 +30,28 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        release {
+            def keystoreFile = file('traderlog-release.jks')
+            if (keystoreFile.exists()) {
+                storeFile keystoreFile
+                storePassword 'traderlog'
+                keyAlias 'traderlog'
+                keyPassword 'traderlog'
+            } else {
+                storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
+            signingConfig = signingConfigs.release
         }
     }
 }

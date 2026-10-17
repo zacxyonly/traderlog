@@ -7,7 +7,7 @@ import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 import '../widgets/hero_summary_card.dart';
 import '../widgets/trade_card.dart';
-import 'trade_form_sheet.dart';
+import '../widgets/trade_detail_sheet.dart';
 
 class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
@@ -263,7 +263,14 @@ class _JournalScreenState extends State<JournalScreen> {
                               tradeEquityMap[trade.id] ?? initialCapital,
                           changePercentage: tradeChangeMap[trade.id] ?? 0.0,
                           onTap: () {
-                            TradeFormSheet.show(context, tradeToEdit: trade);
+                            TradeDetailSheet.show(
+                              context: context,
+                              trade: trade,
+                              tradeIndex: tradeIndexMap[trade.id] ?? 1,
+                              cumulativeEquity:
+                                  tradeEquityMap[trade.id] ?? initialCapital,
+                              changePercentage: tradeChangeMap[trade.id] ?? 0.0,
+                            );
                           },
                         );
                       }),

@@ -22,6 +22,22 @@ class SymbolStat {
   double get winRate => count > 0 ? winCount / count : 0.0;
 }
 
+class TagStat {
+  final String tag;
+  final int count;
+  final int winCount;
+  final double totalPL;
+
+  TagStat({
+    required this.tag,
+    required this.count,
+    required this.winCount,
+    required this.totalPL,
+  });
+
+  double get winRate => count > 0 ? winCount / count : 0.0;
+}
+
 class PeriodSummary {
   final int totalTrades;
   final int winCount;
@@ -45,6 +61,9 @@ class PeriodSummary {
   final String streakType; // 'WIN', 'LOSE', or '-'
   final List<double> equityPoints;
   final List<SymbolStat> symbolStats;
+  final double totalPipsGained;
+  final List<TagStat> setupStats;
+  final List<TagStat> emotionStats;
 
   PeriodSummary({
     required this.totalTrades,
@@ -69,6 +88,9 @@ class PeriodSummary {
     required this.streakType,
     required this.equityPoints,
     required this.symbolStats,
+    this.totalPipsGained = 0.0,
+    this.setupStats = const [],
+    this.emotionStats = const [],
   });
 }
 
@@ -528,6 +550,62 @@ class TradeProvider extends ChangeNotifier {
     }
     symStats.sort((a, b) => b.totalPL.compareTo(a.totalPL));
 
+    // Total Pips
+    double totalPips = 0.0;
+    for (final t in filtered) {
+      if (t.pipsGained != null) {
+        totalPips += t.pipsGained!;
+      }
+    }
+
+    // Setup Tags Breakdown
+    final Map<String, List<Trade>> setupMap = {};
+    for (final t in filtered) {
+      if (t.why != null && t.why!.isNotEmpty) {
+        final tags = t.why!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+        for (final tag in tags) {
+          setupMap.putIfAbsent(tag, () => []).add(t);
+        }
+      }
+    }
+    final List<TagStat> setupStats = [];
+    for (final entry in setupMap.entries) {
+      final tradesForTag = entry.value;
+      final winC = tradesForTag.where((t) => t.result == TradeResult.win).length;
+      final plSum = tradesForTag.fold<double>(0.0, (acc, t) => acc + t.pl);
+      setupStats.add(TagStat(
+        tag: entry.key,
+        count: tradesForTag.length,
+        winCount: winC,
+        totalPL: plSum,
+      ));
+    }
+    setupStats.sort((a, b) => b.totalPL.compareTo(a.totalPL));
+
+    // Emotion Tags Breakdown
+    final Map<String, List<Trade>> emotionMap = {};
+    for (final t in filtered) {
+      if (t.note != null && t.note!.isNotEmpty) {
+        final tags = t.note!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+        for (final tag in tags) {
+          emotionMap.putIfAbsent(tag, () => []).add(t);
+        }
+      }
+    }
+    final List<TagStat> emotionStats = [];
+    for (final entry in emotionMap.entries) {
+      final tradesForTag = entry.value;
+      final winC = tradesForTag.where((t) => t.result == TradeResult.win).length;
+      final plSum = tradesForTag.fold<double>(0.0, (acc, t) => acc + t.pl);
+      emotionStats.add(TagStat(
+        tag: entry.key,
+        count: tradesForTag.length,
+        winCount: winC,
+        totalPL: plSum,
+      ));
+    }
+    emotionStats.sort((a, b) => b.totalPL.compareTo(a.totalPL));
+
     return PeriodSummary(
       totalTrades: n,
       winCount: wins.length,
@@ -551,6 +629,9 @@ class TradeProvider extends ChangeNotifier {
       streakType: streakType,
       equityPoints: equityPoints,
       symbolStats: symStats,
+      totalPipsGained: totalPips,
+      setupStats: setupStats,
+      emotionStats: emotionStats,
     );
   }
 }

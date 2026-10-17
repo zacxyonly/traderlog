@@ -8,6 +8,7 @@ class Trade {
   final String sym;
   final TradeSide side;
   final double? entry;
+  final double? exit;
   final double? sl;
   final double? tp;
   final double? lot;
@@ -24,6 +25,7 @@ class Trade {
     required this.sym,
     required this.side,
     this.entry,
+    this.exit,
     this.sl,
     this.tp,
     this.lot,
@@ -74,6 +76,63 @@ class Trade {
     return '-';
   }
 
+  /// Realized Risk-to-Reward ratio from Entry, SL, and actual Exit
+  double? get realizedRR {
+    if (entry != null && exit != null && sl != null && entry != sl) {
+      final risk = (entry! - sl!).abs();
+      final reward = (exit! - entry!).abs();
+      if (risk > 0) {
+        return reward / risk;
+      }
+    }
+    return null;
+  }
+
+  String get formattedRealizedRR {
+    final rrr = realizedRR;
+    if (rrr != null && rrr > 0) {
+      return '1:${rrr.toStringAsFixed(2)}';
+    }
+    return '-';
+  }
+
+  /// Approximate pips / points gained or lost based on entry and exit
+  double? get pipsGained {
+    if (entry == null || exit == null) return null;
+    final priceDiff = (side == TradeSide.buy) ? (exit! - entry!) : (entry! - exit!);
+    final upper = sym.toUpperCase().replaceAll('/', '').replaceAll('-', '').trim();
+    if (upper.contains('XAU') || upper.contains('GOLD')) {
+      return priceDiff * 10.0;
+    } else if (upper.contains('BTC') ||
+        upper.contains('ETH') ||
+        upper.contains('US30') ||
+        upper.contains('USTEC') ||
+        upper.contains('US500') ||
+        upper.contains('NAS') ||
+        upper.contains('SPX')) {
+      return priceDiff;
+    } else {
+      final isJpy = upper.contains('JPY');
+      final pipSize = isJpy ? 0.01 : 0.0001;
+      return priceDiff / pipSize;
+    }
+  }
+
+  String get formattedPips {
+    final pips = pipsGained;
+    if (pips == null) return '';
+    final upper = sym.toUpperCase();
+    final unit = (upper.contains('BTC') ||
+            upper.contains('ETH') ||
+            upper.contains('US30') ||
+            upper.contains('NAS') ||
+            upper.contains('SPX'))
+        ? 'pts'
+        : 'pips';
+    final prefix = pips > 0 ? '+' : '';
+    return '$prefix${pips.toStringAsFixed(1)} $unit';
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -81,6 +140,7 @@ class Trade {
       'sym': sym,
       'side': sideString,
       'entry': entry,
+      'exit': exit,
       'sl': sl,
       'tp': tp,
       'lot': lot,
@@ -102,6 +162,7 @@ class Trade {
           ? TradeSide.sell
           : TradeSide.buy,
       entry: map['entry'] != null ? (map['entry'] as num).toDouble() : null,
+      exit: map['exit'] != null ? (map['exit'] as num).toDouble() : null,
       sl: map['sl'] != null ? (map['sl'] as num).toDouble() : null,
       tp: map['tp'] != null ? (map['tp'] as num).toDouble() : null,
       lot: map['lot'] != null ? (map['lot'] as num).toDouble() : null,
@@ -120,6 +181,7 @@ class Trade {
     String? sym,
     TradeSide? side,
     double? entry,
+    double? exit,
     double? sl,
     double? tp,
     double? lot,
@@ -136,6 +198,7 @@ class Trade {
       sym: sym ?? this.sym,
       side: side ?? this.side,
       entry: entry ?? this.entry,
+      exit: exit ?? this.exit,
       sl: sl ?? this.sl,
       tp: tp ?? this.tp,
       lot: lot ?? this.lot,

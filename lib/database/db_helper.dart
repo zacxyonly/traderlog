@@ -21,7 +21,7 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
       onOpen: _onOpenDB,
@@ -36,6 +36,7 @@ class DBHelper {
         sym TEXT NOT NULL,
         side TEXT NOT NULL,
         entry REAL,
+        exit REAL,
         sl REAL,
         tp REAL,
         lot REAL,
@@ -65,6 +66,11 @@ class DBHelper {
         await db.execute("ALTER TABLE trades ADD COLUMN account_id TEXT DEFAULT 'acc_real';");
       } catch (_) {}
     }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('ALTER TABLE trades ADD COLUMN exit REAL;');
+      } catch (_) {}
+    }
   }
 
   Future<void> _onOpenDB(Database db) async {
@@ -73,6 +79,9 @@ class DBHelper {
     } catch (_) {}
     try {
       await db.execute("ALTER TABLE trades ADD COLUMN account_id TEXT DEFAULT 'acc_real';");
+    } catch (_) {}
+    try {
+      await db.execute('ALTER TABLE trades ADD COLUMN exit REAL;');
     } catch (_) {}
   }
 

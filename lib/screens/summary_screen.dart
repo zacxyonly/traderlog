@@ -302,6 +302,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
                       textColor,
                       borderColor,
                     ),
+                    if (summary.totalPipsGained != 0.0)
+                      _buildRow(
+                        'Total Pergerakan (Pips/Pts)',
+                        '${summary.totalPipsGained > 0 ? '+' : ''}${summary.totalPipsGained.toStringAsFixed(1)}',
+                        summary.totalPipsGained > 0 ? AppColors.winText : AppColors.loseText,
+                        borderColor,
+                      ),
                     _buildRow(
                       AppStrings.tr('current_streak', lang),
                       summary.streakCount > 0
@@ -406,6 +413,197 @@ class _SummaryScreenState extends State<SummaryScreen> {
                                     : AppColors.lose,
                               ),
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              // Breakdown Setup & Strategi
+              if (summary.setupStats.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.psychology_outlined, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        AppStrings.tr('setup_analytics', lang),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: mutedColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ...summary.setupStats.map((st) {
+                  final maxPL = summary.setupStats
+                      .map((s) => s.totalPL.abs())
+                      .reduce(max);
+                  final barFactor =
+                      maxPL > 0 ? (st.totalPL.abs() / maxPL) : 0.0;
+                  final isProfit = st.totalPL >= 0;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              st.tag,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: textColor,
+                              ),
+                            ),
+                            Text(
+                              Formatters.formatAmountSigned(st.totalPL, currency: currency),
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: isProfit
+                                    ? AppColors.winText
+                                    : AppColors.loseText,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${st.count} ${AppStrings.tr("trades_count", lang)} · win rate ${Formatters.formatPercent(st.winRate, signed: false)} (${st.winCount}W / ${st.count - st.winCount}L)',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: mutedColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            height: 6,
+                            width: double.infinity,
+                            color: isDark ? AppColors.darkSoft : AppColors.lightSoft,
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: barFactor.clamp(0.02, 1.0),
+                              child: Container(
+                                color: isProfit
+                                    ? AppColors.primary
+                                    : AppColors.lose,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              // Breakdown Psikologi & Emosi
+              if (summary.emotionStats.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 20, 4, 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.mood_outlined, size: 16, color: AppColors.primaryLight),
+                      const SizedBox(width: 6),
+                      Text(
+                        AppStrings.tr('psychology_analytics', lang),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: mutedColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ...summary.emotionStats.map((em) {
+                  final isNegativeTag = em.tag == 'FOMO' ||
+                      em.tag == 'Revenge Trade' ||
+                      em.tag == 'Overlot' ||
+                      em.tag == 'Greedy' ||
+                      em.tag == 'Hesitant';
+                  final isProfit = em.totalPL >= 0;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isNegativeTag ? AppColors.lose : AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  em.tag,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${em.count} trade · win rate ${Formatters.formatPercent(em.winRate, signed: false)}',
+                                  style: TextStyle(fontSize: 12, color: mutedColor),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Text(
+                          Formatters.formatAmountSigned(em.totalPL, currency: currency),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: isProfit ? AppColors.winText : AppColors.loseText,
                           ),
                         ),
                       ],

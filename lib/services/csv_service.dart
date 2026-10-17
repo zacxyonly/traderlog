@@ -34,6 +34,7 @@ class CSVService {
       'Symbol',
       'Side',
       'Entry',
+      'Exit',
       'SL',
       'TP',
       'Lot',
@@ -59,6 +60,7 @@ class CSVService {
         t.sym,
         t.sideString,
         t.entry?.toString() ?? '',
+        t.exit?.toString() ?? '',
         t.sl?.toString() ?? '',
         t.tp?.toString() ?? '',
         t.lot?.toString() ?? '',
@@ -141,6 +143,7 @@ class CSVService {
       'sym': ['symbol', 'symbol/pair', 'pair', 'simbol'],
       'side': ['side', 'buy/sell', 'posisi', 'arah'],
       'entry': ['entry', 'open', 'harga masuk'],
+      'exit': ['exit', 'close', 'harga keluar', 'harga tutup', 'target exit'],
       'sl': ['sl', 'stop loss', 'stoploss'],
       'tp': ['tp', 'take profit', 'takeprofit'],
       'lot': ['lot', 'lot size', 'ukuran lot'],
@@ -248,6 +251,7 @@ class CSVService {
       final sideStr = getVal(row, 'side').toUpperCase();
       final side = sideStr == 'SELL' ? TradeSide.sell : TradeSide.buy;
       final entry = parseNum(getVal(row, 'entry'));
+      final exit = parseNum(getVal(row, 'exit'));
       final sl = parseNum(getVal(row, 'sl'));
       final tp = parseNum(getVal(row, 'tp'));
       final lot = parseNum(getVal(row, 'lot'));
@@ -267,6 +271,7 @@ class CSVService {
         sym: sym.isEmpty ? 'CUSTOM' : sym,
         side: side,
         entry: entry,
+        exit: exit,
         sl: sl,
         tp: tp,
         lot: lot,

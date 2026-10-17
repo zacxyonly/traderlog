@@ -7,6 +7,7 @@ import 'package:traderlog/services/csv_service.dart';
 import 'package:traderlog/services/currency_service.dart';
 import 'package:traderlog/utils/app_strings.dart';
 import 'package:traderlog/utils/formatters.dart';
+import 'package:traderlog/utils/pnl_calculator.dart';
 
 void main() {
   group('Trade Model Tests', () {
@@ -257,6 +258,136 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
         'rate': '16250',
       });
       expect(syncedEn, 'Rate updated: 1 USD = 16250 IDR');
+    });
+  });
+
+  group('PnlCalculator & Automated PnL Tests', () {
+    test('Calculates Gold (XAU/USD) profit, loss, and pips correctly', () {
+      // BUY Gold: Entry 2650.00, Exit 2660.00, Lot 0.10 => +$100, +100 pips
+      final buyRes = PnlCalculator.calculate(
+        symbol: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2650.00,
+        exit: 2660.00,
+        lot: 0.10,
+      );
+      expect(buyRes, isNotNull);
+      expect(buyRes!.pnl, 100.0);
+      expect(buyRes.pips, 100.0);
+      expect(buyRes.pipUnit, 'pips');
+      expect(buyRes.formattedPips, '+100.0 pips');
+
+      // SELL Gold: Entry 2650.00, Exit 2655.00, Lot 0.20 => -$100, -50 pips
+      final sellRes = PnlCalculator.calculate(
+        symbol: 'GOLD',
+        side: TradeSide.sell,
+        entry: 2650.00,
+        exit: 2655.00,
+        lot: 0.20,
+      );
+      expect(sellRes, isNotNull);
+      expect(sellRes!.pnl, -100.0);
+      expect(sellRes.pips, -50.0);
+      expect(sellRes.formattedPips, '-50.0 pips');
+    });
+
+    test('Calculates Forex standard and JPY pairs correctly', () {
+      // EUR/USD BUY: Entry 1.0800, Exit 1.0850 (50 pips), Lot 0.1 => $50
+      final fxRes = PnlCalculator.calculate(
+        symbol: 'EUR/USD',
+        side: TradeSide.buy,
+        entry: 1.0800,
+        exit: 1.0850,
+        lot: 0.10,
+      );
+      expect(fxRes, isNotNull);
+      expect(fxRes!.pips.toStringAsFixed(1), '50.0');
+      expect(fxRes.pnl.toStringAsFixed(1), '50.0');
+
+      // USD/JPY SELL: Entry 155.00, Exit 154.50 (50 pips), Lot 0.1 => $50
+      final jpyRes = PnlCalculator.calculate(
+        symbol: 'USD/JPY',
+        side: TradeSide.sell,
+        entry: 155.00,
+        exit: 154.50,
+        lot: 0.10,
+      );
+      expect(jpyRes, isNotNull);
+      expect(jpyRes!.pips.toStringAsFixed(1), '50.0');
+      expect(jpyRes.pnl.toStringAsFixed(1), '50.0');
+    });
+
+    test('Calculates Crypto & Index point moves correctly', () {
+      // BTC/USD BUY: Entry 68000, Exit 69000 (1000 pts), Lot 0.05 => $50
+      final btcRes = PnlCalculator.calculate(
+        symbol: 'BTC/USD',
+        side: TradeSide.buy,
+        entry: 68000.0,
+        exit: 69000.0,
+        lot: 0.05,
+      );
+      expect(btcRes, isNotNull);
+      expect(btcRes!.pnl, 50.0);
+      expect(btcRes.pips, 1000.0);
+      expect(btcRes.pipUnit, 'pts');
+    });
+
+    test('Calculates planned risk and reward correctly', () {
+      final risk = PnlCalculator.calculateRisk(
+        symbol: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2650.00,
+        sl: 2645.00,
+        lot: 0.10,
+      );
+      expect(risk, isNotNull);
+      expect(risk!.pnl, -50.0);
+
+      final reward = PnlCalculator.calculateReward(
+        symbol: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2650.00,
+        tp: 2665.00,
+        lot: 0.10,
+      );
+      expect(reward, isNotNull);
+      expect(reward!.pnl, 150.0);
+    });
+  });
+
+  group('Trade Model Exit & Realized RR Tests', () {
+    test('Calculates realized RR and formatted pips from exit price', () {
+      final trade = Trade(
+        id: '100',
+        date: DateTime(2026, 10, 17),
+        sym: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2600.0,
+        exit: 2625.0,
+        sl: 2590.0,
+        tp: 2630.0,
+        lot: 0.1,
+        pl: 250.0,
+      );
+
+      // Planned Risk = 10, Reward = 30 => planned RR = 3.0
+      expect(trade.riskRewardRatio, 3.0);
+      expect(trade.formattedRR, '1:3.00');
+
+      // Realized Risk = 10, Realized Reward = 25 => realized RR = 2.5
+      expect(trade.realizedRR, 2.5);
+      expect(trade.formattedRealizedRR, '1:2.50');
+
+      // Pips gained: Gold price diff = 25 => 250 pips
+      expect(trade.pipsGained, 250.0);
+      expect(trade.formattedPips, '+250.0 pips');
+
+      // Map serialization & deserialization includes exit
+      final map = trade.toMap();
+      expect(map['exit'], 2625.0);
+      final fromMap = Trade.fromMap(map);
+      expect(fromMap.exit, 2625.0);
+      expect(fromMap.pipsGained, 250.0);
     });
   });
 }
