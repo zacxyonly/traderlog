@@ -205,8 +205,10 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     const SizedBox(height: 12),
                     InteractiveEquityCurve(
                       equityPoints: summary.equityPoints,
-                      trades: provider.trades,
-                      initialCapital: provider.activeAccount.initialCapital,
+                      trades: summary.trades,
+                      initialCapital: summary.equityPoints.isNotEmpty
+                          ? summary.equityPoints.first
+                          : provider.activeAccount.initialCapital,
                       currency: currency,
                       height: 140,
                     ),

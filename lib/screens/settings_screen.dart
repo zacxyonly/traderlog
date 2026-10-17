@@ -209,6 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
+    provider.setSystemPickerActive(true);
     try {
       await CSVService.exportTrades(
         trades: provider.trades,
@@ -229,6 +230,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(content: Text('Gagal mengekspor CSV: $e')),
         );
       }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
     }
   }
 
@@ -242,6 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
+    provider.setSystemPickerActive(true);
     try {
       final nowStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
       final accountName = provider.activeAccount.name.replaceAll(' ', '_');
@@ -269,10 +275,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(content: Text('Gagal membuat cadangan cloud: $e')),
         );
       }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
     }
   }
 
   Future<void> _importCSV(String lang) async {
+    final provider = context.read<TradeProvider>();
+    provider.setSystemPickerActive(true);
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -285,7 +297,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final content = await file.readAsString();
 
       if (!mounted) return;
-      final provider = context.read<TradeProvider>();
       final parseResult = CSVService.parseCSV(
         content,
         existingTrades: provider.trades,
@@ -362,6 +373,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SnackBar(content: Text('Gagal membaca file: $e')),
         );
       }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
     }
   }
 
@@ -441,40 +456,125 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _confirmDisablePin(String lang) {
+    final currentPinCtrl = TextEditingController();
+    final expectedPin = context.read<TradeProvider>().settings.pinCode;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(AppStrings.tr('disable_pin', lang)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                lang == 'en'
+                    ? 'Enter current 4-digit PIN to disable lock:'
+                    : 'Masukkan 4 digit PIN saat ini untuk mematikan kunci:',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: currentPinCtrl,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: lang == 'en' ? 'Current PIN' : 'PIN Saat Ini',
+                  counterText: '',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(AppStrings.tr('cancel', lang)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.lose,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                if (currentPinCtrl.text.trim() == expectedPin) {
+                  context.read<TradeProvider>().setPinCode(null);
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(AppStrings.tr('pin_disabled', lang))),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        lang == 'en' ? 'Incorrect PIN' : 'PIN salah. Gagal mematikan kunci.',
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: Text(AppStrings.tr('disable_pin', lang)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showSetPinDialog(String lang, {bool isChanging = false}) {
+    final curPinCtrl = TextEditingController();
     final pin1Ctrl = TextEditingController();
     final pin2Ctrl = TextEditingController();
+    final currentExpected = context.read<TradeProvider>().settings.pinCode;
 
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
           title: Text(AppStrings.tr(isChanging ? 'change_pin' : 'setup_pin_title', lang)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: pin1Ctrl,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: AppStrings.tr('setup_pin_title', lang),
-                  counterText: '',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isChanging && currentExpected != null) ...[
+                  TextField(
+                    controller: curPinCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: lang == 'en' ? 'Current PIN' : 'PIN Saat Ini',
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                TextField(
+                  controller: pin1Ctrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.tr('setup_pin_title', lang),
+                    counterText: '',
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: pin2Ctrl,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: AppStrings.tr('confirm_pin_title', lang),
-                  counterText: '',
+                const SizedBox(height: 12),
+                TextField(
+                  controller: pin2Ctrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.tr('confirm_pin_title', lang),
+                    counterText: '',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -487,6 +587,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
+                if (isChanging && currentExpected != null) {
+                  if (curPinCtrl.text.trim() != currentExpected) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(lang == 'en' ? 'Current PIN is incorrect' : 'PIN saat ini salah')),
+                    );
+                    return;
+                  }
+                }
                 final p1 = pin1Ctrl.text.trim();
                 final p2 = pin2Ctrl.text.trim();
                 if (p1.length == 4 && p1 == p2) {
@@ -505,7 +613,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 }
               },
-              child: const Text('Simpan PIN'),
+              child: Text(AppStrings.tr('save_changes', lang)),
             ),
           ],
         );
@@ -1138,10 +1246,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 if (val) {
                                   _showSetPinDialog(lang);
                                 } else {
-                                  tradeProvider.setPinCode(null);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(AppStrings.tr('pin_disabled', lang))),
-                                  );
+                                  _confirmDisablePin(lang);
                                 }
                               },
                             ),
@@ -1175,7 +1280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   AppStrings.tr('disable_pin', lang),
                                   style: const TextStyle(color: AppColors.lose),
                                 ),
-                                onPressed: () => tradeProvider.setPinCode(null),
+                                onPressed: () => _confirmDisablePin(lang),
                               ),
                             ],
                           ),

@@ -61,6 +61,7 @@ class PeriodSummary {
   final String streakType; // 'WIN', 'LOSE', or '-'
   final List<double> equityPoints;
   final List<SymbolStat> symbolStats;
+  final List<Trade> trades;
   final double totalPipsGained;
   final List<TagStat> setupStats;
   final List<TagStat> emotionStats;
@@ -88,6 +89,7 @@ class PeriodSummary {
     required this.streakType,
     required this.equityPoints,
     required this.symbolStats,
+    this.trades = const [],
     this.totalPipsGained = 0.0,
     this.setupStats = const [],
     this.emotionStats = const [],
@@ -273,13 +275,20 @@ class TradeProvider extends ChangeNotifier {
   }
 
   // --- Security PIN & Biometric ---
+  bool _isSystemPickerActive = false;
+  bool get isSystemPickerActive => _isSystemPickerActive;
+
+  void setSystemPickerActive(bool active) {
+    _isSystemPickerActive = active;
+  }
+
   void unlockApp() {
     _isAppUnlocked = true;
     notifyListeners();
   }
 
   void lockApp() {
-    if (_settings.isPinSet) {
+    if (_settings.isPinSet && !_isSystemPickerActive) {
       _isAppUnlocked = false;
       notifyListeners();
     }
@@ -425,17 +434,22 @@ class TradeProvider extends ChangeNotifier {
     List<Trade> filtered;
     final now = DateTime.now();
 
+    final initialCap = activeAccount.initialCapital;
+    double startingEquity = initialCap;
+
     if (period == '30') {
       final threshold = now.subtract(const Duration(days: 30));
       filtered = activeTrades.where((t) => t.date.isAfter(threshold)).toList();
+      final prior = activeTrades.where((t) => !t.date.isAfter(threshold)).toList();
+      startingEquity = initialCap + prior.fold<double>(0.0, (sum, t) => sum + t.pl);
     } else if (period == '7') {
       final threshold = now.subtract(const Duration(days: 7));
       filtered = activeTrades.where((t) => t.date.isAfter(threshold)).toList();
+      final prior = activeTrades.where((t) => !t.date.isAfter(threshold)).toList();
+      startingEquity = initialCap + prior.fold<double>(0.0, (sum, t) => sum + t.pl);
     } else {
       filtered = List.from(activeTrades);
     }
-
-    final initialCap = activeAccount.initialCapital;
 
     if (filtered.isEmpty) {
       return PeriodSummary(
@@ -459,8 +473,9 @@ class TradeProvider extends ChangeNotifier {
         actualRR: null,
         streakCount: 0,
         streakType: '-',
-        equityPoints: [initialCap],
+        equityPoints: [startingEquity],
         symbolStats: [],
+        trades: const [],
       );
     }
 
@@ -487,8 +502,8 @@ class TradeProvider extends ChangeNotifier {
     final worstTrade = pls.reduce(min);
 
     // Equity points & Max Drawdown
-    final equityPoints = <double>[initialCap];
-    double eq = initialCap;
+    final equityPoints = <double>[startingEquity];
+    double eq = startingEquity;
     for (final t in filtered) {
       eq += t.pl;
       equityPoints.add(eq);
@@ -629,6 +644,7 @@ class TradeProvider extends ChangeNotifier {
       streakType: streakType,
       equityPoints: equityPoints,
       symbolStats: symStats,
+      trades: filtered,
       totalPipsGained: totalPips,
       setupStats: setupStats,
       emotionStats: emotionStats,

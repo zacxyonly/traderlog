@@ -76,11 +76,11 @@ class Trade {
     return '-';
   }
 
-  /// Realized Risk-to-Reward ratio from Entry, SL, and actual Exit
+  /// Realized Risk-to-Reward ratio (R-Multiple) from Entry, SL, and actual Exit
   double? get realizedRR {
     if (entry != null && exit != null && sl != null && entry != sl) {
       final risk = (entry! - sl!).abs();
-      final reward = (exit! - entry!).abs();
+      final reward = (side == TradeSide.buy) ? (exit! - entry!) : (entry! - exit!);
       if (risk > 0) {
         return reward / risk;
       }
@@ -90,8 +90,12 @@ class Trade {
 
   String get formattedRealizedRR {
     final rrr = realizedRR;
-    if (rrr != null && rrr > 0) {
-      return '1:${rrr.toStringAsFixed(2)}';
+    if (rrr != null) {
+      if (rrr >= 0) {
+        return '1:${rrr.toStringAsFixed(2)}';
+      } else {
+        return '-1:${rrr.abs().toStringAsFixed(2)}';
+      }
     }
     return '-';
   }

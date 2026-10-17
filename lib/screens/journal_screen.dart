@@ -38,7 +38,7 @@ class _JournalScreenState extends State<JournalScreen> {
 
     final provider = context.watch<TradeProvider>();
     final allTrades = provider.trades; // chronologically sorted (oldest first)
-    final initialCapital = provider.settings.initialCapital;
+    final initialCapital = provider.activeAccount.initialCapital;
 
     // Calculate chronological cumulative equity & balance for each trade
     double runningEquity = initialCapital;

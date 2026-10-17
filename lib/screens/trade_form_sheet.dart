@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/trade.dart';
@@ -305,16 +306,22 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
 
     if (entry != null && exit != null && sl != null && entry != sl) {
       final risk = (entry - sl).abs();
-      final reward = (exit - entry).abs();
+      final reward = (_side == TradeSide.buy) ? (exit - entry) : (entry - exit);
       if (risk > 0) {
         final rr = reward / risk;
-        return '1:${rr.toStringAsFixed(2)}';
+        if (rr >= 0) {
+          return '1:${rr.toStringAsFixed(2)}';
+        } else {
+          return '-1:${rr.abs().toStringAsFixed(2)}';
+        }
       }
     }
     return '-';
   }
 
   Future<void> _pickImage(ImageSource source, {bool isAfter = false}) async {
+    final provider = context.read<TradeProvider>();
+    provider.setSystemPickerActive(true);
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -323,11 +330,16 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
         imageQuality: 85,
       );
       if (pickedFile != null) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final ext = pickedFile.path.contains('.') ? pickedFile.path.split('.').last : 'jpg';
+        final fileName = 'chart_${DateTime.now().millisecondsSinceEpoch}_${isAfter ? 'after' : 'before'}.$ext';
+        final savedFile = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+
         setState(() {
           if (isAfter) {
-            _imagePathAfter = pickedFile.path;
+            _imagePathAfter = savedFile.path;
           } else {
-            _imagePath = pickedFile.path;
+            _imagePath = savedFile.path;
           }
         });
       }
@@ -337,6 +349,10 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
           SnackBar(content: Text('Gagal memilih gambar: $e')),
         );
       }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
     }
   }
 

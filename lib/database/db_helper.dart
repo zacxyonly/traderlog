@@ -55,6 +55,10 @@ class DBHelper {
         value TEXT
       )
     ''');
+
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_date ON trades(date);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_account ON trades(account_id);');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_sym ON trades(sym);');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -82,6 +86,11 @@ class DBHelper {
     } catch (_) {}
     try {
       await db.execute('ALTER TABLE trades ADD COLUMN exit REAL;');
+    } catch (_) {}
+    try {
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_date ON trades(date);');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_account ON trades(account_id);');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_sym ON trades(sym);');
     } catch (_) {}
   }
 

@@ -383,7 +383,13 @@ class TradeDetailSheet extends StatelessWidget {
                           ),
                           Text(
                             trade.formattedRealizedRR,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.winText),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: (trade.realizedRR != null && trade.realizedRR! < 0)
+                                  ? AppColors.loseText
+                                  : AppColors.winText,
+                            ),
                           ),
                         ],
                       ),
@@ -479,6 +485,12 @@ class TradeDetailSheet extends StatelessWidget {
                                   height: 110,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
+                                  errorBuilder: (ctx, err, stack) => Container(
+                                    height: 110,
+                                    color: softColor,
+                                    alignment: Alignment.center,
+                                    child: Icon(Icons.broken_image_outlined, color: mutedColor),
+                                  ),
                                 ),
                                 Positioned(
                                   bottom: 6,
@@ -522,6 +534,12 @@ class TradeDetailSheet extends StatelessWidget {
                                   height: 110,
                                   width: double.infinity,
                                   fit: BoxFit.cover,
+                                  errorBuilder: (ctx, err, stack) => Container(
+                                    height: 110,
+                                    color: softColor,
+                                    alignment: Alignment.center,
+                                    child: Icon(Icons.broken_image_outlined, color: mutedColor),
+                                  ),
                                 ),
                                 Positioned(
                                   bottom: 6,

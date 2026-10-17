@@ -140,6 +140,33 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(result.duplicates, 1);
       expect(result.trades[0].sym, 'BTC/USD');
     });
+
+    test('Exports and imports CSV with Account column', () {
+      final trades = [
+        Trade(
+          id: 'acc_test_1',
+          date: DateTime(2026, 10, 17, 10, 0),
+          sym: 'XAU/USD',
+          side: TradeSide.buy,
+          entry: 2600.0,
+          exit: 2620.0,
+          sl: 2590.0,
+          tp: 2630.0,
+          lot: 0.1,
+          pl: 200.0,
+          accountId: 'acc_prop_firm',
+        ),
+      ];
+
+      final csvStr = CSVService.generateCSV(trades: trades, initialCapital: 10000.0);
+      expect(csvStr.contains('Account'), true);
+      expect(csvStr.contains('acc_prop_firm'), true);
+
+      final parsed = CSVService.parseCSV(csvStr, existingTrades: []);
+      expect(parsed.trades.length, 1);
+      expect(parsed.trades[0].accountId, 'acc_prop_firm');
+      expect(parsed.trades[0].exit, 2620.0);
+    });
   });
 
   group('AppSettings Tests', () {
@@ -388,6 +415,50 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       final fromMap = Trade.fromMap(map);
       expect(fromMap.exit, 2625.0);
       expect(fromMap.pipsGained, 250.0);
+    });
+
+    test('Calculates realized RR correctly for SELL positions and losses', () {
+      // Winning SELL: Entry 2650, Exit 2630 (+20 gain), SL 2660 (Risk 10) => RR 2.0
+      final sellWin = Trade(
+        id: '101',
+        date: DateTime(2026, 10, 17),
+        sym: 'XAU/USD',
+        side: TradeSide.sell,
+        entry: 2650.0,
+        exit: 2630.0,
+        sl: 2660.0,
+        pl: 200.0,
+      );
+      expect(sellWin.realizedRR, 2.0);
+      expect(sellWin.formattedRealizedRR, '1:2.00');
+
+      // Losing SELL: Entry 2650, Exit 2660 (-10 loss), SL 2660 (Risk 10) => RR -1.0
+      final sellLoss = Trade(
+        id: '102',
+        date: DateTime(2026, 10, 17),
+        sym: 'XAU/USD',
+        side: TradeSide.sell,
+        entry: 2650.0,
+        exit: 2660.0,
+        sl: 2660.0,
+        pl: -100.0,
+      );
+      expect(sellLoss.realizedRR, -1.0);
+      expect(sellLoss.formattedRealizedRR, '-1:1.00');
+
+      // Losing BUY: Entry 2600, Exit 2585 (-15 loss), SL 2590 (Risk 10) => RR -1.5
+      final buyLoss = Trade(
+        id: '103',
+        date: DateTime(2026, 10, 17),
+        sym: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2600.0,
+        exit: 2585.0,
+        sl: 2590.0,
+        pl: -150.0,
+      );
+      expect(buyLoss.realizedRR, -1.5);
+      expect(buyLoss.formattedRealizedRR, '-1:1.50');
     });
   });
 }

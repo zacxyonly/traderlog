@@ -77,6 +77,15 @@ class ImageViewerDialog extends StatelessWidget {
                           child: Image.file(
                             file,
                             fit: BoxFit.contain,
+                            errorBuilder: (ctx, err, stack) => Container(
+                              height: 200,
+                              color: Colors.black26,
+                              alignment: Alignment.center,
+                              child: const Text(
+                                'Gagal memuat gambar (file rusak / tidak didukung).',
+                                style: TextStyle(color: Colors.white60),
+                              ),
+                            ),
                           ),
                         )
                       : Container(

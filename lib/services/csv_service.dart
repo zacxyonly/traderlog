@@ -43,7 +43,8 @@ class CSVService {
       'PL',
       'Equity',
       'Why',
-      'Note'
+      'Note',
+      'Account'
     ]);
 
     double equity = initialCapital;
@@ -70,6 +71,7 @@ class CSVService {
         equity.toStringAsFixed(2),
         t.why ?? '',
         t.note ?? '',
+        t.accountId ?? '',
       ]);
     }
 
@@ -150,6 +152,7 @@ class CSVService {
       'pl': ['pl', 'profit or loss', 'profit/loss', 'profit', 'untung/rugi'],
       'why': ['why', 'alasan', 'alasan ambil trade', 'setup', 'analisis'],
       'note': ['note', 'trade note', 'catatan', 'keterangan'],
+      'account': ['account', 'account_id', 'akun', 'id akun'],
     };
 
     final Map<String, int> colIdx = {};
@@ -257,6 +260,7 @@ class CSVService {
       final lot = parseNum(getVal(row, 'lot'));
       final why = getVal(row, 'why');
       final note = getVal(row, 'note');
+      final account = getVal(row, 'account');
 
       final key = '${date.toIso8601String()}|$sym|$pl|${entry ?? 0}';
       if (existingKeys.contains(key)) {
@@ -278,6 +282,7 @@ class CSVService {
         pl: pl,
         why: why.isNotEmpty ? why : null,
         note: note.isNotEmpty ? note : null,
+        accountId: account.isNotEmpty ? account : null,
       ));
     }
 

@@ -22,7 +22,8 @@ class AccountSwitcherSheet extends StatelessWidget {
     final nameCtrl = TextEditingController();
     final capCtrl = TextEditingController(text: '1000');
     String type = 'real';
-    String currency = 'USD';
+    final activeCurr = context.read<TradeProvider>().settings.accountCurrency;
+    String currency = activeCurr;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
@@ -95,22 +96,78 @@ class AccountSwitcherSheet extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      AppStrings.tr('account_capital', lang),
-                      style: TextStyle(fontSize: 12, color: mutedColor, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: capCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w700),
-                      decoration: InputDecoration(
-                        hintText: '1000',
-                        filled: true,
-                        fillColor: softColor,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                AppStrings.tr('account_capital', lang),
+                                style: TextStyle(fontSize: 12, color: mutedColor, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: capCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w700),
+                                decoration: InputDecoration(
+                                  hintText: '1000',
+                                  filled: true,
+                                  fillColor: softColor,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Currency',
+                                style: TextStyle(fontSize: 12, color: mutedColor, fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: softColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: currency,
+                                    isExpanded: true,
+                                    dropdownColor: cardColor,
+                                    style: TextStyle(color: textColor, fontWeight: FontWeight.w700, fontSize: 13),
+                                    items: const [
+                                      DropdownMenuItem(value: 'USD', child: Text('USD')),
+                                      DropdownMenuItem(value: 'IDR', child: Text('IDR')),
+                                      DropdownMenuItem(value: 'USDC', child: Text('USDC')),
+                                      DropdownMenuItem(value: 'USDT', child: Text('USDT')),
+                                      DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                                      DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                                      DropdownMenuItem(value: 'JPY', child: Text('JPY')),
+                                      DropdownMenuItem(value: 'SGD', child: Text('SGD')),
+                                      DropdownMenuItem(value: 'AUD', child: Text('AUD')),
+                                    ],
+                                    onChanged: (val) {
+                                      if (val != null) setDialogState(() => currency = val);
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -141,7 +198,7 @@ class AccountSwitcherSheet extends StatelessWidget {
                       Navigator.of(ctx).pop();
                     }
                   },
-                  child: Text(AppStrings.tr('add_symbol', lang)),
+                  child: Text(AppStrings.tr('add_new_account', lang)),
                 ),
               ],
             );
