@@ -1,7 +1,7 @@
 name: traderlog
 description: "Traderlog - Jurnal Trading Profesional untuk Android by Zacxy"
 publish_to: 'none'
-version: 1.4.0+5
+version: 1.4.1+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
