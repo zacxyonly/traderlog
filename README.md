@@ -1,5 +1,7 @@
 # Traderlog - Aplikasi Android Jurnal Trading (Flutter)
 
+[![Build Android APK](https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml/badge.svg)](https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml)
+
 Aplikasi Android jurnal trading profesional dengan antarmuka modern (Dark Navy & Emerald Green) terinspirasi dari prototipe `Trading Journal.html`. Dibangun menggunakan **Flutter**, database relasional lokal **SQFlite (SQLite)**, dan arsitektur state management **Provider**.
 
 ---
