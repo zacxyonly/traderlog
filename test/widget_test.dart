@@ -217,6 +217,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(AppStrings.tr('actual_rr', 'en'), 'Actual RR (Payoff Ratio)');
       expect(AppStrings.tr('pin_lock_title', 'id'), 'Kunci Aplikasi dengan PIN');
       expect(AppStrings.tr('pin_lock_title', 'en'), 'App Lock with 4-Digit PIN');
+      expect(AppStrings.tr('lock_now', 'id'), 'Kunci Aplikasi Sekarang');
+      expect(AppStrings.tr('lock_now', 'en'), 'Lock App Now');
     });
   });
 

@@ -28,8 +28,34 @@ void main() async {
   );
 }
 
-class TraderlogApp extends StatelessWidget {
+class TraderlogApp extends StatefulWidget {
   const TraderlogApp({super.key});
+
+  @override
+  State<TraderlogApp> createState() => _TraderlogAppState();
+}
+
+class _TraderlogAppState extends State<TraderlogApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      if (mounted) {
+        context.read<TradeProvider>().lockApp();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1151,14 +1151,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(height: 12),
                           const Divider(height: 1),
                           const SizedBox(height: 10),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.spaceBetween,
                             children: [
                               TextButton.icon(
                                 icon: const Icon(Icons.edit_outlined, size: 16),
                                 label: Text(AppStrings.tr('change_pin', lang)),
                                 onPressed: () => _showSetPinDialog(lang, isChanging: true),
                               ),
-                              const Spacer(),
+                              TextButton.icon(
+                                icon: const Icon(Icons.lock_rounded, size: 16, color: AppColors.primary),
+                                label: Text(
+                                  AppStrings.tr('lock_now', lang),
+                                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () => tradeProvider.lockApp(),
+                              ),
                               TextButton.icon(
                                 icon: const Icon(Icons.lock_open_rounded, size: 16, color: AppColors.lose),
                                 label: Text(

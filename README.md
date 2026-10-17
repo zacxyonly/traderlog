@@ -45,7 +45,7 @@ Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQ
 
 ---
 
-## 🌟 Fitur Unggulan (v1.4.0)
+## 🌟 Fitur Unggulan (v1.4.1)
 
 ### 1. 📊 Analisis & Evaluasi (Tab Ringkasan)
 * **📈 Grafik Equity Curve Interaktif**: Visualisasi garis pertumbuhan modal akumulatif yang dinamis dengan baseline modal awal, penanda titik tertinggi (*All-Time Peak*), garis *scrub* sentuh real-time, dan tooltip info PnL per trade.
@@ -158,7 +158,7 @@ traderlog/
 ├── test/
 │   └── widget_test.dart           # Unit test kalkulasi RR, multi-akun, CSV, PIN & lokalisasi
 ├── LICENSE                        # Lisensi open-source MIT
-└── pubspec.yaml                   # Manifest paket dan dependensi Flutter v1.4.0+5
+└── pubspec.yaml                   # Manifest paket dan dependensi Flutter v1.4.1+6
 ```
 
 ---
