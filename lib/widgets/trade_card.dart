@@ -96,37 +96,46 @@ class TradeCard extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  '#$tradeIndex ${trade.sym}',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: textColor,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: sideBgColor,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    trade.sideString,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: sideColor,
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      '#$tradeIndex ${trade.sym}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: textColor,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: sideBgColor,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      trade.sideString,
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: sideColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -138,6 +147,7 @@ class TradeCard extends StatelessWidget {
                               ),
                               child: Text(
                                 trade.resultString,
+                                maxLines: 1,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -155,39 +165,52 @@ class TradeCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Text(
-                                  Formatters.formatAmountSigned(trade.pl, currency: currency),
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: plColor,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                                if (trade.formattedPips.isNotEmpty) ...[
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    trade.formattedPips,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: plColor.withOpacity(0.85),
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.baseline,
+                                textBaseline: TextBaseline.alphabetic,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      Formatters.formatAmountSigned(trade.pl, currency: currency),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        color: plColor,
+                                        letterSpacing: -0.3,
+                                      ),
                                     ),
                                   ),
+                                  if (trade.formattedPips.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      trade.formattedPips,
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: plColor.withOpacity(0.85),
+                                      ),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                            Text(
-                              '${Formatters.formatPercent(changePercentage)} · RR ${trade.formattedRealizedRR != '-' ? trade.formattedRealizedRR : trade.formattedRR}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: mutedColor,
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                '${Formatters.formatPercent(changePercentage)} · RR ${trade.formattedRealizedRR != '-' ? trade.formattedRealizedRR : trade.formattedRR}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: mutedColor,
+                                ),
                               ),
                             ),
                           ],
@@ -198,23 +221,31 @@ class TradeCard extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '${Formatters.formatDateTime(trade.date)} · Eq ${Formatters.formatAmount(cumulativeEquity, currency: currency)}${trade.lot != null ? ' · ${trade.lot} lot' : ''}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: mutedColor,
-                                fontWeight: FontWeight.w500,
+                            Expanded(
+                              child: Text(
+                                '${Formatters.formatDateTime(trade.date)} · Eq ${Formatters.formatAmount(cumulativeEquity, currency: currency)}${trade.lot != null ? ' · ${trade.lot} lot' : ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: mutedColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                            if (trade.entry != null)
+                            if (trade.entry != null) ...[
+                              const SizedBox(width: 8),
                               Text(
                                 '${trade.entry}${trade.exit != null ? ' ➔ ${trade.exit}' : ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: textColor.withOpacity(0.7),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                            ],
                           ],
                         ),
 
@@ -223,6 +254,9 @@ class TradeCard extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             trade.why!,
+                            softWrap: true,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13,
                               color: textColor,

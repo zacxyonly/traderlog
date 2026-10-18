@@ -43,12 +43,16 @@ class AdvancedAnalyticsSection extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: AppColors.primaryLight),
               const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: mutedColor,
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: mutedColor,
+                  ),
                 ),
               ),
             ],
@@ -64,11 +68,15 @@ class AdvancedAnalyticsSection extends StatelessWidget {
               children: [
                 Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 11, color: mutedColor),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -99,6 +107,8 @@ class AdvancedAnalyticsSection extends StatelessWidget {
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
@@ -108,13 +118,18 @@ class AdvancedAnalyticsSection extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 12, color: mutedColor),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               Formatters.formatAmountSigned(totalPL, currency: currency),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,

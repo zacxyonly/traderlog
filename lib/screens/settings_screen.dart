@@ -1472,13 +1472,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        AppStrings.tr('cat_accounts', lang),
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
+                      Expanded(
+                        child: Text(
+                          AppStrings.tr('cat_accounts', lang),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add, size: 16),
-                        label: Text(AppStrings.tr('add_new_account', lang)),
+                        label: Text(
+                          AppStrings.tr('add_new_account', lang),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -1528,12 +1537,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      Text(
-                                        acc.name,
-                                        style: TextStyle(
-                                          fontSize: 14.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: textColor,
+                                      Flexible(
+                                        child: Text(
+                                          acc.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: textColor,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -1545,6 +1558,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         ),
                                         child: Text(
                                           acc.typeLabel,
+                                          maxLines: 1,
                                           style: const TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w800,
@@ -1557,6 +1571,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   const SizedBox(height: 3),
                                   Text(
                                     'Modal Awal: ${Formatters.formatAmount(acc.initialCapital, currency: acc.currency)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(fontSize: 12, color: mutedColor),
                                   ),
                                 ],
@@ -2577,6 +2593,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -2771,6 +2789,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   child: Text(
                     opt.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,

@@ -182,14 +182,19 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          AppStrings.tr('equity_curve', lang),
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                            color: mutedColor,
+                        Expanded(
+                          child: Text(
+                            AppStrings.tr('equity_curve', lang),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: mutedColor,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -199,6 +204,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           ),
                           child: Text(
                             lang == 'en' ? 'Touch & scrub for details' : 'Sentuh & geser untuk detail',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 10.5, color: mutedColor),
                           ),
                         ),
@@ -372,16 +379,23 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              sym.symbol,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: textColor,
+                            Expanded(
+                              child: Text(
+                                sym.symbol,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               Formatters.formatAmountSigned(sym.totalPL, currency: currency),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -395,6 +409,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         const SizedBox(height: 4),
                         Text(
                           '${sym.count} ${AppStrings.tr("trades_count", lang)} · win rate ${Formatters.formatPercent(sym.winRate, signed: false)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12.5,
                             color: mutedColor,
@@ -473,16 +489,23 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              st.tag,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: textColor,
+                            Expanded(
+                              child: Text(
+                                st.tag,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: textColor,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               Formatters.formatAmountSigned(st.totalPL, currency: currency),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -496,6 +519,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         const SizedBox(height: 4),
                         Text(
                           '${st.count} ${AppStrings.tr("trades_count", lang)} · win rate ${Formatters.formatPercent(st.winRate, signed: false)} (${st.winCount}W / ${st.count - st.winCount}L)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12.5,
                             color: mutedColor,
@@ -571,39 +596,50 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isNegativeTag ? AppColors.lose : AppColors.primary,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isNegativeTag ? AppColors.lose : AppColors.primary,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  em.tag,
-                                  style: TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: textColor,
-                                  ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      em.tag,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${em.count} trade · win rate ${Formatters.formatPercent(em.winRate, signed: false)}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 12, color: mutedColor),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${em.count} trade · win rate ${Formatters.formatPercent(em.winRate, signed: false)}',
-                                  style: TextStyle(fontSize: 12, color: mutedColor),
-                                ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           Formatters.formatAmountSigned(em.totalPL, currency: currency),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
@@ -660,6 +696,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
           alignment: Alignment.center,
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -690,15 +728,22 @@ class _SummaryScreenState extends State<SummaryScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w500,
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,

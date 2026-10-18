@@ -59,15 +59,18 @@ class RiskPropSection extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: AppColors.primaryLight),
               const SizedBox(width: 6),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: mutedColor,
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: mutedColor,
+                  ),
                 ),
               ),
-              const Spacer(),
               if (trailing != null) trailing,
             ],
           ),
@@ -76,9 +79,19 @@ class RiskPropSection extends StatelessWidget {
     Widget kv(String label, String value, Color valueColor) => Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontSize: 13, color: mutedColor)),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 13, color: mutedColor),
+              ),
+            ),
+            const SizedBox(width: 8),
             Text(
               value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
@@ -172,6 +185,7 @@ class RiskPropSection extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   AppStrings.tr('prop_note', lang),
+                  softWrap: true,
                   style: TextStyle(fontSize: 11, color: mutedColor),
                 ),
               ],
@@ -220,16 +234,23 @@ class _RuleBar extends StatelessWidget {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: textColor,
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           Text(
             AppStrings.tr('prop_no_limit', lang),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 12, color: mutedColor),
           ),
         ],
@@ -251,6 +272,8 @@ class _RuleBar extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -258,8 +281,11 @@ class _RuleBar extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               '${(used * 100).toStringAsFixed(2)}% / ${(lim * 100).toStringAsFixed(2)}%',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
@@ -282,6 +308,7 @@ class _RuleBar extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             AppStrings.tr('prop_breached', lang),
+            softWrap: true,
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,

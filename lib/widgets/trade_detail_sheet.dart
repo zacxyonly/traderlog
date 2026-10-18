@@ -289,34 +289,43 @@ class TradeDetailSheet extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        '#$tradeIndex ${trade.sym}',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: textColor,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: sideBgColor,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          trade.sideString,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: sideColor,
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '#$tradeIndex ${trade.sym}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: textColor,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: sideBgColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            trade.sideString,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: sideColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
@@ -325,6 +334,7 @@ class TradeDetailSheet extends StatelessWidget {
                     ),
                     child: Text(
                       trade.resultString,
+                      maxLines: 1,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -348,30 +358,37 @@ class TradeDetailSheet extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          Formatters.formatAmountSigned(trade.pl, currency: currency),
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: statusColor,
-                            letterSpacing: -0.5,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            Formatters.formatAmountSigned(trade.pl, currency: currency),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              color: statusColor,
+                              letterSpacing: -0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${Formatters.formatPercent(changePercentage)} saldo · Equity ${Formatters.formatAmount(cumulativeEquity, currency: currency)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: textColor.withOpacity(0.7),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${Formatters.formatPercent(changePercentage)} saldo · Equity ${Formatters.formatAmount(cumulativeEquity, currency: currency)}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: textColor.withOpacity(0.7),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    if (trade.formattedPips.isNotEmpty)
+                    if (trade.formattedPips.isNotEmpty) ...[
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -386,6 +403,7 @@ class TradeDetailSheet extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               trade.formattedPips,
+                              maxLines: 1,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
@@ -395,6 +413,7 @@ class TradeDetailSheet extends StatelessWidget {
                           ],
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),
@@ -499,9 +518,13 @@ class TradeDetailSheet extends StatelessWidget {
                 children: [
                   Icon(Icons.calendar_today_outlined, size: 14, color: mutedColor),
                   const SizedBox(width: 6),
-                  Text(
-                    Formatters.formatDateTime(trade.date),
-                    style: TextStyle(fontSize: 13, color: mutedColor, fontWeight: FontWeight.w600),
+                  Expanded(
+                    child: Text(
+                      Formatters.formatDateTime(trade.date),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, color: mutedColor, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ],
               ),
@@ -511,6 +534,8 @@ class TradeDetailSheet extends StatelessWidget {
               if (trade.why != null && trade.why!.isNotEmpty) ...[
                 Text(
                   AppStrings.tr('why_label', lang),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: mutedColor),
                 ),
                 const SizedBox(height: 6),
@@ -524,6 +549,7 @@ class TradeDetailSheet extends StatelessWidget {
                   ),
                   child: Text(
                     trade.why!,
+                    softWrap: true,
                     style: TextStyle(fontSize: 14, color: textColor, fontWeight: FontWeight.w500, height: 1.35),
                   ),
                 ),
@@ -534,6 +560,8 @@ class TradeDetailSheet extends StatelessWidget {
               if (trade.note != null && trade.note!.isNotEmpty) ...[
                 Text(
                   AppStrings.tr('note_label', lang),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: mutedColor),
                 ),
                 const SizedBox(height: 6),
@@ -547,6 +575,7 @@ class TradeDetailSheet extends StatelessWidget {
                   ),
                   child: Text(
                     trade.note!,
+                    softWrap: true,
                     style: TextStyle(fontSize: 14, color: textColor, fontWeight: FontWeight.w500, height: 1.35),
                   ),
                 ),
@@ -667,7 +696,11 @@ class TradeDetailSheet extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: Text(AppStrings.tr('edit_trade', lang)),
+                      label: Text(
+                        AppStrings.tr('edit_trade', lang),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -681,7 +714,11 @@ class TradeDetailSheet extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.copy_outlined, size: 16),
-                      label: Text(AppStrings.tr('duplicate_trade', lang)),
+                      label: Text(
+                        AppStrings.tr('duplicate_trade', lang),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: borderColor),
                         foregroundColor: textColor,
@@ -732,12 +769,14 @@ class TradeDetailSheet extends StatelessWidget {
       children: [
         Text(
           label,
+          maxLines: 1,
           style: TextStyle(fontSize: 10.5, color: labelColor, fontWeight: FontWeight.w600),
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 3),
         Text(
           value,
+          maxLines: 1,
           style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: valueColor),
           overflow: TextOverflow.ellipsis,
         ),

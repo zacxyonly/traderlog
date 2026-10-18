@@ -84,33 +84,40 @@ class HeroSummaryCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    GestureDetector(
-                      onTap: () => AccountSwitcherSheet.show(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.14),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '[${activeAccount.typeLabel}] ${activeAccount.name}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: GestureDetector(
+                        onTap: () => AccountSwitcherSheet.show(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '[${activeAccount.typeLabel}] ${activeAccount.name}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 3),
-                            const Icon(
-                              Icons.arrow_drop_down_rounded,
-                              size: 16,
-                              color: Colors.white70,
-                            ),
-                          ],
+                              const SizedBox(width: 3),
+                              const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                size: 16,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -121,6 +128,8 @@ class HeroSummaryCard extends StatelessWidget {
                 // Label
                 Text(
                   AppStrings.tr('hero_total_equity', lang),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.heroLabel,
@@ -143,6 +152,8 @@ class HeroSummaryCard extends StatelessWidget {
                         ? '••••••'
                         : Formatters.formatAmount(equity,
                             currency: activeAccount.currency),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 34,
                       fontWeight: FontWeight.w800,
@@ -157,36 +168,44 @@ class HeroSummaryCard extends StatelessWidget {
                 Row(
                   children: [
                     if (activeAccount.currency != provider.settings.exchangeCurrency) ...[
-                      Text(
-                        hide
-                            ? '••••'
-                            : Formatters.formatAmount(equityIDR,
-                                currency: provider.settings.exchangeCurrency),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFC5D3DE),
-                          fontWeight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          hide
+                              ? '••••'
+                              : Formatters.formatAmount(equityIDR,
+                                  currency: provider.settings.exchangeCurrency),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFFC5D3DE),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
                     ],
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        hide
-                            ? '•••• · ••%'
-                            : '${Formatters.formatAmountSigned(pl, currency: activeAccount.currency)} · ${Formatters.formatPercent(plPct)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: plColor,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(
+                          hide
+                              ? '•••• · ••%'
+                              : '${Formatters.formatAmountSigned(pl, currency: activeAccount.currency)} · ${Formatters.formatPercent(plPct)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: plColor,
+                          ),
                         ),
                       ),
                     ),

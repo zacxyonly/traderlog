@@ -81,6 +81,8 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
                       children: [
                         Text(
                           dateStr,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -90,11 +92,14 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
                         const SizedBox(height: 2),
                         Text(
                           '${trades.length} ${AppStrings.tr("trades_count", lang)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 12.5, color: mutedColor),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
@@ -107,6 +112,8 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
                     ),
                     child: Text(
                       Formatters.formatAmountSigned(dailyNet, currency: currency),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
@@ -168,12 +175,16 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            t.sym,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                              color: textColor,
+                          Flexible(
+                            child: Text(
+                              t.sym,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: textColor,
+                              ),
                             ),
                           ),
                           if (t.why != null && t.why!.isNotEmpty) ...[
@@ -188,8 +199,11 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
                             ),
                           ] else
                             const Spacer(),
+                          const SizedBox(width: 8),
                           Text(
                             Formatters.formatAmountSigned(t.pl, currency: currency),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w800,
@@ -473,30 +487,38 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildSummaryStat(
-                  AppStrings.tr('win_days', lang),
-                  '$winDays',
-                  AppColors.winText,
+                Expanded(
+                  child: _buildSummaryStat(
+                    AppStrings.tr('win_days', lang),
+                    '$winDays',
+                    AppColors.winText,
+                  ),
                 ),
                 Container(width: 1, height: 22, color: borderColor),
-                _buildSummaryStat(
-                  AppStrings.tr('lose_days', lang),
-                  '$loseDays',
-                  AppColors.loseText,
+                Expanded(
+                  child: _buildSummaryStat(
+                    AppStrings.tr('lose_days', lang),
+                    '$loseDays',
+                    AppColors.loseText,
+                  ),
                 ),
                 Container(width: 1, height: 22, color: borderColor),
-                _buildSummaryStat(
-                  AppStrings.tr('day_win_rate', lang),
-                  '${dayWinRate.toStringAsFixed(0)}%',
-                  AppColors.primaryLight,
+                Expanded(
+                  child: _buildSummaryStat(
+                    AppStrings.tr('day_win_rate', lang),
+                    '${dayWinRate.toStringAsFixed(0)}%',
+                    AppColors.primaryLight,
+                  ),
                 ),
                 Container(width: 1, height: 22, color: borderColor),
-                _buildSummaryStat(
-                  AppStrings.tr('month_net_pnl', lang),
-                  Formatters.formatAmountSigned(monthNetPnL, currency: currency),
-                  monthNetPnL > 0
-                      ? AppColors.winText
-                      : (monthNetPnL < 0 ? AppColors.loseText : textColor),
+                Expanded(
+                  child: _buildSummaryStat(
+                    AppStrings.tr('month_net_pnl', lang),
+                    Formatters.formatAmountSigned(monthNetPnL, currency: currency),
+                    monthNetPnL > 0
+                        ? AppColors.winText
+                        : (monthNetPnL < 0 ? AppColors.loseText : textColor),
+                  ),
                 ),
               ],
             ),
@@ -512,6 +534,8 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
       children: [
         Text(
           value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w800,
@@ -521,6 +545,8 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
         const SizedBox(height: 1),
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w500,

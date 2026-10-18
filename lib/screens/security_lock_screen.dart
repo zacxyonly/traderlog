@@ -148,6 +148,9 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
               const SizedBox(height: 6),
               Text(
                 AppStrings.tr('enter_pin_to_unlock', lang),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,

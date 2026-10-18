@@ -130,6 +130,8 @@ class _AboutSectionState extends State<AboutSection> {
                   children: [
                     Text(
                       title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w700,
@@ -140,6 +142,8 @@ class _AboutSectionState extends State<AboutSection> {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12, color: mutedColor),
                       ),
                     ],
@@ -180,6 +184,8 @@ class _AboutSectionState extends State<AboutSection> {
               const SizedBox(height: 12),
               Text(
                 AppInfo.appName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -190,12 +196,16 @@ class _AboutSectionState extends State<AboutSection> {
               Text(
                 AppStrings.tr('about_tagline', lang),
                 textAlign: TextAlign.center,
+                softWrap: true,
                 style: TextStyle(fontSize: 13, color: mutedColor),
               ),
               const SizedBox(height: 8),
               Text(
                 '${AppStrings.tr('about_version', lang)} ${AppInfo.version} '
                 '(build ${AppInfo.buildNumber})',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -230,6 +240,8 @@ class _AboutSectionState extends State<AboutSection> {
                       _checking ? 'about_checking' : 'about_check_update',
                       lang,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -238,6 +250,7 @@ class _AboutSectionState extends State<AboutSection> {
                 Text(
                   _statusText!,
                   textAlign: TextAlign.center,
+                  softWrap: true,
                   style: TextStyle(fontSize: 13, color: mutedColor),
                 ),
               ],
@@ -251,7 +264,11 @@ class _AboutSectionState extends State<AboutSection> {
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () => _open(_releaseUrl!, lang),
-                    child: Text(AppStrings.tr('about_open_release', lang)),
+                    child: Text(
+                      AppStrings.tr('about_open_release', lang),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
               ],

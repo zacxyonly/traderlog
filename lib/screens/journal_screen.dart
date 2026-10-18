@@ -170,6 +170,8 @@ class _JournalScreenState extends State<JournalScreen> {
                       const SizedBox(height: 12),
                       Text(
                         AppStrings.tr('empty_trades_title', lang),
+                        textAlign: TextAlign.center,
+                        softWrap: true,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -180,6 +182,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       Text(
                         AppStrings.tr('empty_trades_sub', lang),
                         textAlign: TextAlign.center,
+                        softWrap: true,
                         style: TextStyle(
                           fontSize: 13,
                           color: mutedColor,
@@ -203,6 +206,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       Text(
                         AppStrings.tr('no_filtered_trades', lang),
                         textAlign: TextAlign.center,
+                        softWrap: true,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -231,19 +235,26 @@ class _JournalScreenState extends State<JournalScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              monthTitle,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: mutedColor,
+                            Expanded(
+                              child: Text(
+                                monthTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: mutedColor,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               Formatters.formatAmountSigned(
                                 totalMonthPL,
                                 currency: provider.activeAccount.currency,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
@@ -316,6 +327,8 @@ class _JournalScreenState extends State<JournalScreen> {
           alignment: Alignment.center,
           child: Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,

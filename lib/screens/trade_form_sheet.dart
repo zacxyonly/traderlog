@@ -682,16 +682,21 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    isEdit
-                        ? AppStrings.tr('edit_trade', lang)
-                        : AppStrings.tr('new_trade', lang),
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      color: textColor,
+                  Expanded(
+                    child: Text(
+                      isEdit
+                          ? AppStrings.tr('edit_trade', lang)
+                          : AppStrings.tr('new_trade', lang),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: Icon(Icons.close, color: mutedColor),
                     onPressed: () => Navigator.of(context).pop(),
@@ -716,14 +721,19 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        Formatters.formatDateTime(_selectedDate),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
+                      Expanded(
+                        child: Text(
+                          Formatters.formatDateTime(_selectedDate),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Icon(Icons.calendar_today_outlined,
                           size: 18, color: mutedColor),
                     ],
@@ -1078,16 +1088,20 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 4,
                           children: [
                             if (_plannedRisk?.pnl != null)
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(Icons.shield_outlined, size: 14, color: AppColors.loseText),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${AppStrings.tr('risk_planned', lang)}: ${Formatters.formatAmountSigned(_plannedRisk!.pnl!, currency: provider.activeAccount.currency)} (${riskPct.toStringAsFixed(1)}%)',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
@@ -1098,11 +1112,14 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                               ),
                             if (_plannedReward?.pnl != null)
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(Icons.flag_outlined, size: 14, color: AppColors.winText),
                                   const SizedBox(width: 4),
                                   Text(
                                     '${AppStrings.tr('reward_planned', lang)}: ${Formatters.formatAmountSigned(_plannedReward!.pnl!, currency: provider.activeAccount.currency)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
@@ -1117,6 +1134,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                           const SizedBox(height: 4),
                           Text(
                             AppStrings.tr('risk_warn_overlot', lang),
+                            softWrap: true,
                             style: const TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w700,
@@ -1134,14 +1152,17 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildLabel(
-                    AppStrings.tr(
-                      'pl_label',
-                      lang,
-                      params: {'curr': provider.activeAccount.currency},
+                  Expanded(
+                    child: _buildLabel(
+                      AppStrings.tr(
+                        'pl_label',
+                        lang,
+                        params: {'curr': provider.activeAccount.currency},
+                      ),
+                      mutedColor,
                     ),
-                    mutedColor,
                   ),
+                  const SizedBox(width: 6),
                   if (_lastCalculatedPnl != null)
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1154,6 +1175,8 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                           ),
                           child: Text(
                             '${_lastCalculatedPnl!.pips >= 0 ? '⚡ +' : '⚡ '}${_lastCalculatedPnl!.formattedPips}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -1169,11 +1192,14 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(Icons.sync_rounded, size: 13, color: AppColors.primary),
                                   const SizedBox(width: 2),
                                   Text(
                                     AppStrings.tr('sync_calc', lang),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -1397,6 +1423,8 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
