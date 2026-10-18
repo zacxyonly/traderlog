@@ -168,7 +168,7 @@ class _AboutSectionState extends State<AboutSection> {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: AppColors.heroGradient),
+                  gradient: const LinearGradient(colors: AppColors.heroGradient),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Icon(

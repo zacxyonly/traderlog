@@ -86,7 +86,7 @@ void main() {
 
   group('Risk per trade', () {
     test('risk ratio uses balance at the time of the trade', () {
-      final account = TradingAccount(
+      final account = const TradingAccount(
         id: 'acc_real',
         name: 'Real',
         initialCapital: 10000,
@@ -107,7 +107,7 @@ void main() {
 
   group('Prop firm status', () {
     test('daily loss and drawdown are measured from the right base', () {
-      final account = TradingAccount(
+      final account = const TradingAccount(
         id: 'acc_prop',
         name: 'Prop',
         type: 'prop_firm',
