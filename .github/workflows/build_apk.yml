@@ -49,20 +49,33 @@ jobs:
       - name: Configure Keystore from Secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          SECRET_STORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SECRET_KEY_PASS: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Using release keystore provided via repository secrets."
             echo "$KEYSTORE_BASE64" | base64 -d > /tmp/release-keystore.jks
             echo "KEYSTORE_PATH=/tmp/release-keystore.jks" >> $GITHUB_ENV
+            echo "KEYSTORE_PASSWORD=${SECRET_STORE_PASS}" >> $GITHUB_ENV
+            echo "KEY_ALIAS=${SECRET_KEY_ALIAS}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${SECRET_KEY_PASS}" >> $GITHUB_ENV
           else
-            echo "No KEYSTORE_BASE64 secret provided. Proceeding with fallback."
+            echo "No KEYSTORE_BASE64 secret provided. Generating standalone release keystore."
+            mkdir -p /tmp/keystore
+            keytool -genkey -v -keystore /tmp/keystore/release.jks -alias traderlog -keyalg RSA -keysize 2048 -validity 10000 -storepass traderlog -keypass traderlog -dname "CN=TraderLog, OU=Release, O=TraderLog, L=Jakarta, C=ID"
+            echo "KEYSTORE_PATH=/tmp/keystore/release.jks" >> $GITHUB_ENV
+            echo "KEYSTORE_PASSWORD=traderlog" >> $GITHUB_ENV
+            echo "KEY_ALIAS=traderlog" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=traderlog" >> $GITHUB_ENV
           fi
 
       - name: Build Android Release APK
         env:
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
         run: flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Package Release APKs
