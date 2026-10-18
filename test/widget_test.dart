@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:traderlog/models/app_settings.dart';
 import 'package:traderlog/models/trade.dart';
 import 'package:traderlog/models/trading_account.dart';
-import 'package:traderlog/providers/trade_provider.dart';
 import 'package:traderlog/services/backup_service.dart';
 import 'package:traderlog/services/csv_service.dart';
 import 'package:traderlog/utils/app_strings.dart';
@@ -638,7 +637,7 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       // Profit factor = 450 / 300 = 1.50
       const grossP = 450.0;
       const grossL = 300.0;
-      final pf = grossL > 0 ? grossP / grossL : null;
+      const pf = grossL > 0 ? grossP / grossL : null;
       expect(pf, 1.5);
 
       // Streak calculation verification

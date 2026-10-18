@@ -303,6 +303,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           : '-',
                       textColor,
                       borderColor,
+                    ),
                     _buildRow(
                       AppStrings.tr('current_streak', lang),
                       summary.streakCount > 0

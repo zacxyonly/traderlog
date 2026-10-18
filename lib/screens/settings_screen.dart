@@ -394,6 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) {
           if (res.success) {
             await provider.loadData();
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: AppColors.primary,

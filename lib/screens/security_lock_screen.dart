@@ -58,6 +58,7 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
         return;
       }
 
+      if (!mounted) return;
       final lang = context.read<TradeProvider>().settings.languageCode;
       final localizedReason = lang == 'id'
           ? 'Pindai sidik jari atau wajah untuk membuka TraderLog'

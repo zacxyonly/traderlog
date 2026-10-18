@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/app_settings.dart';
@@ -122,6 +121,7 @@ class TradeProvider extends ChangeNotifier {
   AppSettings get settings => _settings;
   bool get isLoading => _isLoading;
   bool get isAppUnlocked => _isAppUnlocked;
+  bool get isLocked => _settings.isPinSet && !_isAppUnlocked;
 
   TradingAccount get activeAccount => _settings.activeAccount;
 
@@ -447,6 +447,17 @@ class TradeProvider extends ChangeNotifier {
         t.date.year == day.year &&
         t.date.month == day.month &&
         t.date.day == day.day).toList();
+  }
+
+  /// Daily net PnL mapped by 'YYYY-MM-DD' for the Heatmap Calendar
+  Map<String, double> getDailyPnLMap() {
+    final Map<String, double> pnlMap = {};
+    for (final t in trades) {
+      final key =
+          '${t.date.year}-${t.date.month.toString().padLeft(2, '0')}-${t.date.day.toString().padLeft(2, '0')}';
+      pnlMap[key] = (pnlMap[key] ?? 0.0) + t.pl;
+    }
+    return pnlMap;
   }
 
   /// Summary statistics calculation for 'all', '30', or '7' days (with caching)
