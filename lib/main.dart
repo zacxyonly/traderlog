@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'constants/app_colors.dart';
 import 'providers/trade_provider.dart';
@@ -8,6 +9,12 @@ import 'screens/security_lock_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // DateFormat with 'id_ID' throws LocaleDataException unless the locale
+  // data is loaded first. Without this, the PnL calendar heatmap fails to
+  // build for Indonesian users and shows as a blank grey box.
+  await initializeDateFormatting('id_ID', null);
+  await initializeDateFormatting('en_US', null);
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(

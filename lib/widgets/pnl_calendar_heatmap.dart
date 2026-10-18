@@ -285,17 +285,23 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
         children: [
           // Header with Month Navigation
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                AppStrings.tr('calendar_title', lang),
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: mutedColor,
+              // Title takes the leftover space and truncates if needed, so the
+              // month navigator on the right always stays inside the card.
+              Expanded(
+                child: Text(
+                  AppStrings.tr('calendar_title', lang),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: mutedColor,
+                  ),
                 ),
               ),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left_rounded, size: 20),
@@ -304,12 +310,20 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
                     onPressed: _prevMonth,
                     color: textColor,
                   ),
-                  Text(
-                    monthName,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: textColor,
+                  // Fixed-width slot centers the month name so both arrows
+                  // sit the same distance from it, whatever the month length.
+                  SizedBox(
+                    width: 120,
+                    child: Text(
+                      monthName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                      ),
                     ),
                   ),
                   IconButton(
