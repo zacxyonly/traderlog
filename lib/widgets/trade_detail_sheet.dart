@@ -109,31 +109,121 @@ class TradeDetailSheet extends StatelessWidget {
 
   void _deleteTrade(BuildContext context) {
     final lang = context.read<TradeProvider>().settings.languageCode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppStrings.tr('delete_trade', lang)),
-        content: Text(AppStrings.tr('confirm_delete_trade', lang)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(AppStrings.tr('cancel', lang)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop(); // dialog
-              Navigator.of(context).pop(); // sheet
-              context.read<TradeProvider>().deleteTrade(trade.id);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(AppStrings.tr('trade_deleted', lang))),
-              );
-            },
-            child: Text(
-              AppStrings.tr('delete', lang),
-              style: const TextStyle(color: AppColors.lose),
+      builder: (ctx) => Dialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.lose.withOpacity(0.14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.delete_outline_rounded, color: AppColors.lose, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        AppStrings.tr('delete_trade', lang),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  AppStrings.tr('confirm_delete_trade', lang),
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: mutedColor,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.lose,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      Navigator.of(ctx).pop(); // dialog
+                      Navigator.of(context).pop(); // sheet
+                      context.read<TradeProvider>().deleteTrade(trade.id);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(AppStrings.tr('trade_deleted', lang))),
+                      );
+                    },
+                    child: Text(
+                      AppStrings.tr('delete', lang),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: mutedColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: borderColor),
+                      ),
+                    ),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text(
+                      AppStrings.tr('cancel', lang),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

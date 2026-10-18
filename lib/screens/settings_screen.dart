@@ -13,6 +13,7 @@ import '../services/csv_service.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 import '../widgets/about_section.dart';
+import '../widgets/account_form_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -180,36 +181,138 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _confirmRemoveSymbol(String symbol, String lang) {
-    showDialog(
+  Future<bool?> _showConfirmDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    String? cancelLabel,
+    Color confirmColor = AppColors.lose,
+    IconData icon = Icons.warning_amber_rounded,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+
+    return showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppStrings.tr('delete_symbol_title', lang)),
-        content: Text(
-          AppStrings.tr(
-            'delete_symbol_msg',
-            lang,
-            params: {'s': symbol},
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(AppStrings.tr('cancel', lang)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<TradeProvider>().removeSymbol(symbol);
-            },
-            child: Text(
-              AppStrings.tr('delete', lang),
-              style: const TextStyle(color: AppColors.lose),
+      builder: (ctx) => Dialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: confirmColor.withOpacity(0.14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, color: confirmColor, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  message,
+                  softWrap: true,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: mutedColor,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: confirmColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: Text(
+                      confirmLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: mutedColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: borderColor),
+                      ),
+                    ),
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: Text(
+                      cancelLabel ?? AppStrings.tr('cancel', context.read<TradeProvider>().settings.languageCode),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  void _confirmRemoveSymbol(String symbol, String lang) async {
+    final confirmed = await _showConfirmDialog(
+      context: context,
+      title: AppStrings.tr('delete_symbol_title', lang),
+      message: AppStrings.tr('delete_symbol_msg', lang, params: {'s': symbol}),
+      confirmLabel: AppStrings.tr('delete', lang),
+      icon: Icons.delete_outline_rounded,
+    );
+    if (confirmed == true && mounted) {
+      context.read<TradeProvider>().removeSymbol(symbol);
+    }
   }
 
   Future<void> _exportCSV(String lang) async {
@@ -303,34 +406,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final preview = opened.preview;
 
       if (!mounted) return;
-      final confirmed = await showDialog<bool>(
+      final confirmed = await _showConfirmDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(AppStrings.tr('restore_zip_title', lang)),
-          content: Text(
-            AppStrings.tr('restore_zip_confirm', lang, params: {
-              'trades': '${preview.tradeCount}',
-              'accounts': '${preview.accountCount}',
-              'images': '${preview.imageCount}',
-              'date': preview.createdAt == null
-                  ? '-'
-                  : DateFormat('d MMM yyyy, HH:mm').format(preview.createdAt!),
-            }),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(AppStrings.tr('cancel', lang)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(
-                AppStrings.tr('restore_zip_action', lang),
-                style: const TextStyle(color: AppColors.lose),
-              ),
-            ),
-          ],
-        ),
+        title: AppStrings.tr('restore_zip_title', lang),
+        message: AppStrings.tr('restore_zip_confirm', lang, params: {
+          'trades': '${preview.tradeCount}',
+          'accounts': '${preview.accountCount}',
+          'images': '${preview.imageCount}',
+          'date': preview.createdAt == null
+              ? '-'
+              : DateFormat('d MMM yyyy, HH:mm').format(preview.createdAt!),
+        }),
+        confirmLabel: AppStrings.tr('restore_zip_action', lang),
+        confirmColor: AppColors.lose,
+        icon: Icons.restore_rounded,
       );
       if (confirmed != true || !mounted) return;
 
@@ -402,54 +491,278 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+      final softColor = isDark ? AppColors.darkSoft : AppColors.lightSoft;
+      final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+      final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+      final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+      String importMethod = 'merge';
+
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(lang == 'en' ? 'Import Confirmation' : 'Konfirmasi Impor CSV'),
-          content: Text(
-            lang == 'en'
-                ? 'Found ${parseResult.trades.length} new trades.\n(${parseResult.duplicates} duplicates skipped, ${parseResult.skipped} invalid rows skipped).\n\nChoose import method:'
-                : 'Ditemukan ${parseResult.trades.length} trade baru.\n(${parseResult.duplicates} duplikat dilewati, ${parseResult.skipped} baris tidak valid dilewati).\n\nPilih metode impor:',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(AppStrings.tr('cancel', lang)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                context
-                    .read<TradeProvider>()
-                    .importTrades(parseResult.trades, replace: false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      lang == 'en'
-                          ? 'Successfully imported ${parseResult.trades.length} trades'
-                          : '${parseResult.trades.length} trade berhasil digabungkan ke jurnal',
-                    ),
+        builder: (ctx) => StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return Dialog(
+              backgroundColor: cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.16),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.file_upload_outlined,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              AppStrings.tr('import_confirmation', lang),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: textColor,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.close_rounded, color: mutedColor, size: 20),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            splashRadius: 20,
+                            onPressed: () => Navigator.of(ctx).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Info stats container
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: softColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                lang == 'en'
+                                    ? 'Found ${parseResult.trades.length} new trades.\n(${parseResult.duplicates} duplicates, ${parseResult.skipped} invalid rows skipped).'
+                                    : 'Ditemukan ${parseResult.trades.length} trade baru.\n(${parseResult.duplicates} duplikat, ${parseResult.skipped} baris dilewati).',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: textColor,
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      Text(
+                        lang == 'en' ? 'Choose Import Method:' : 'Pilih Metode Impor:',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: mutedColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Icon cards for import type selection
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setDialogState(() => importMethod = 'merge');
+                              },
+                              borderRadius: BorderRadius.circular(14),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: importMethod == 'merge'
+                                      ? AppColors.primary.withOpacity(isDark ? 0.20 : 0.12)
+                                      : softColor,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: importMethod == 'merge' ? AppColors.primary : borderColor,
+                                    width: importMethod == 'merge' ? 2.0 : 1.0,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.call_merge_rounded,
+                                      size: 22,
+                                      color: importMethod == 'merge' ? AppColors.primary : mutedColor,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      AppStrings.tr('import_merge', lang),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: importMethod == 'merge' ? textColor : mutedColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      AppStrings.tr('import_merge_sub', lang),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: importMethod == 'merge' ? AppColors.primary : mutedColor.withOpacity(0.8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setDialogState(() => importMethod = 'replace');
+                              },
+                              borderRadius: BorderRadius.circular(14),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: importMethod == 'replace'
+                                      ? AppColors.lose.withOpacity(isDark ? 0.20 : 0.12)
+                                      : softColor,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: importMethod == 'replace' ? AppColors.lose : borderColor,
+                                    width: importMethod == 'replace' ? 2.0 : 1.0,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.warning_amber_rounded,
+                                      size: 22,
+                                      color: importMethod == 'replace' ? AppColors.lose : mutedColor,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      AppStrings.tr('import_replace', lang),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: importMethod == 'replace' ? textColor : mutedColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      AppStrings.tr('import_replace_sub', lang),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: importMethod == 'replace' ? AppColors.lose : mutedColor.withOpacity(0.8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Wide main button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: importMethod == 'merge' ? AppColors.primary : AppColors.lose,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            if (importMethod == 'merge') {
+                              context
+                                  .read<TradeProvider>()
+                                  .importTrades(parseResult.trades, replace: false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    lang == 'en'
+                                        ? 'Successfully imported ${parseResult.trades.length} trades'
+                                        : '${parseResult.trades.length} trade berhasil digabungkan ke jurnal',
+                                  ),
+                                ),
+                              );
+                            } else {
+                              _confirmReplaceAll(parseResult, lang);
+                            }
+                          },
+                          child: Text(
+                            AppStrings.tr('proceed_import', lang),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
-              child: Text(lang == 'en' ? 'Merge' : 'Gabungkan'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.lose,
-                foregroundColor: Colors.white,
+                ),
               ),
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _confirmReplaceAll(parseResult, lang);
-              },
-              child: Text(lang == 'en' ? 'Replace All' : 'Ganti Semua'),
-            ),
-          ],
+            );
+          },
         ),
       );
     } catch (e) {
@@ -465,144 +778,218 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _confirmReplaceAll(CSVImportResult parseResult, String lang) {
-    showDialog(
+  void _confirmReplaceAll(CSVImportResult parseResult, String lang) async {
+    final confirmed = await _showConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(lang == 'en' ? 'Replace All Trades?' : 'Ganti Semua Trade?'),
-        content: Text(
-          lang == 'en'
-              ? 'All currently saved trades will be removed and replaced with data from this CSV. Continue?'
-              : 'Semua trade yang tersimpan saat ini akan dihapus dan digantikan dengan data dari CSV ini. Lanjutkan?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(AppStrings.tr('cancel', lang)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context
-                  .read<TradeProvider>()
-                  .importTrades(parseResult.trades, replace: true);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    lang == 'en'
-                        ? 'All trades replaced with ${parseResult.trades.length} new trades'
-                        : 'Semua trade telah diganti dengan ${parseResult.trades.length} trade baru',
-                  ),
-                ),
-              );
-            },
-            child: Text(
-              lang == 'en' ? 'Replace All' : 'Ganti Semua',
-              style: const TextStyle(color: AppColors.lose),
-            ),
-          ),
-        ],
-      ),
+      title: lang == 'en' ? 'Replace All Trades?' : 'Ganti Semua Trade?',
+      message: lang == 'en'
+          ? 'All currently saved trades will be removed and replaced with data from this CSV. Continue?'
+          : 'Semua trade yang tersimpan saat ini akan dihapus dan digantikan dengan data dari CSV ini. Lanjutkan?',
+      confirmLabel: lang == 'en' ? 'Replace All' : 'Ganti Semua',
+      confirmColor: AppColors.lose,
+      icon: Icons.warning_amber_rounded,
     );
+    if (confirmed == true && mounted) {
+      context
+          .read<TradeProvider>()
+          .importTrades(parseResult.trades, replace: true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lang == 'en'
+                ? 'All trades replaced with ${parseResult.trades.length} new trades'
+                : 'Semua trade telah diganti dengan ${parseResult.trades.length} trade baru',
+          ),
+        ),
+      );
+    }
   }
 
-  void _confirmResetTrades(String lang) {
-    showDialog(
+  void _confirmResetTrades(String lang) async {
+    final confirmed = await _showConfirmDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppStrings.tr('confirm_reset_title', lang)),
-        content: Text(AppStrings.tr('confirm_reset_sub', lang)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(AppStrings.tr('cancel', lang)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              context.read<TradeProvider>().deleteAllTrades();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    lang == 'en'
-                        ? 'All trade logs in this account have been cleared'
-                        : 'Semua trade pada akun ini telah dihapus',
-                  ),
-                ),
-              );
-            },
-            child: Text(
-              AppStrings.tr('delete', lang),
-              style: const TextStyle(color: AppColors.lose),
-            ),
-          ),
-        ],
-      ),
+      title: AppStrings.tr('confirm_reset_title', lang),
+      message: AppStrings.tr('confirm_reset_sub', lang),
+      confirmLabel: AppStrings.tr('delete', lang),
+      confirmColor: AppColors.lose,
+      icon: Icons.delete_forever_rounded,
     );
+    if (confirmed == true && mounted) {
+      context.read<TradeProvider>().deleteAllTrades();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            lang == 'en'
+                ? 'All trade logs in this account have been cleared'
+                : 'Semua trade pada akun ini telah dihapus',
+          ),
+        ),
+      );
+    }
   }
 
   void _confirmDisablePin(String lang) {
     final currentPinCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final softColor = isDark ? AppColors.darkSoft : AppColors.lightSoft;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
 
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: Text(AppStrings.tr('disable_pin', lang)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                lang == 'en'
-                    ? 'Enter current 4-digit PIN to disable lock:'
-                    : 'Masukkan 4 digit PIN saat ini untuk mematikan kunci:',
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: currentPinCtrl,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: lang == 'en' ? 'Current PIN' : 'PIN Saat Ini',
-                  counterText: '',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(AppStrings.tr('cancel', lang)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.lose,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (context.read<TradeProvider>().verifyPin(currentPinCtrl.text.trim())) {
-                  context.read<TradeProvider>().setPinCode(null);
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(AppStrings.tr('pin_disabled', lang))),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        lang == 'en' ? 'Incorrect PIN' : 'PIN salah. Gagal mematikan kunci.',
+        return Dialog(
+          backgroundColor: cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.lose.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.lock_open_rounded,
+                            color: AppColors.lose,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            AppStrings.tr('disable_pin', lang),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded, color: mutedColor, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 20,
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      lang == 'en'
+                          ? 'Enter current 4-digit PIN to disable lock:'
+                          : 'Masukkan 4 digit PIN saat ini untuk mematikan kunci:',
+                      softWrap: true,
+                      style: TextStyle(fontSize: 13, color: mutedColor),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: currentPinCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      obscureText: true,
+                      autofocus: true,
+                      style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+                      decoration: InputDecoration(
+                        labelText: lang == 'en' ? 'Current PIN' : 'PIN Saat Ini',
+                        prefixIcon: Icon(Icons.lock_outline, color: mutedColor, size: 20),
+                        counterText: '',
+                        filled: true,
+                        fillColor: softColor,
+                        errorMaxLines: 2,
+                        helperMaxLines: 2,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: borderColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.lose, width: 1.4),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.lose, width: 1.8),
+                        ),
+                        errorStyle: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.lose,
+                        ),
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().length != 4) {
+                          return AppStrings.tr('pin_required', lang);
+                        }
+                        if (!context.read<TradeProvider>().verifyPin(val.trim())) {
+                          return lang == 'en' ? 'Current PIN is incorrect' : 'PIN saat ini salah';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.lose,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          if (formKey.currentState!.validate()) {
+                            context.read<TradeProvider>().setPinCode(null);
+                            Navigator.of(ctx).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(AppStrings.tr('pin_disabled', lang))),
+                            );
+                          }
+                        },
+                        child: Text(
+                          AppStrings.tr('disable_pin', lang),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                }
-              },
-              child: Text(AppStrings.tr('disable_pin', lang)),
+                  ],
+                ),
+              ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -612,185 +999,217 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final curPinCtrl = TextEditingController();
     final pin1Ctrl = TextEditingController();
     final pin2Ctrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
     final hasCurrentPin = context.read<TradeProvider>().settings.isPinSet;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final softColor = isDark ? AppColors.darkSoft : AppColors.lightSoft;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+    InputDecoration pinDeco(String label, IconData icon) {
+      return InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: mutedColor, size: 20),
+        counterText: '',
+        filled: true,
+        fillColor: softColor,
+        errorMaxLines: 2,
+        helperMaxLines: 2,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.lose, width: 1.4),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.lose, width: 1.8),
+        ),
+        errorStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.lose,
+        ),
+      );
+    }
 
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: Text(AppStrings.tr(isChanging ? 'change_pin' : 'setup_pin_title', lang)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isChanging && hasCurrentPin) ...[
-                  TextField(
-                    controller: curPinCtrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: lang == 'en' ? 'Current PIN' : 'PIN Saat Ini',
-                      counterText: '',
+        return Dialog(
+          backgroundColor: cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.lock_outline_rounded,
+                            color: AppColors.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            AppStrings.tr(isChanging ? 'change_pin' : 'setup_pin_title', lang),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded, color: mutedColor, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          splashRadius: 20,
+                          onPressed: () => Navigator.of(ctx).pop(),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                TextField(
-                  controller: pin1Ctrl,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.tr('setup_pin_title', lang),
-                    counterText: '',
-                  ),
+                    const SizedBox(height: 18),
+                    if (isChanging && hasCurrentPin) ...[
+                      TextFormField(
+                        controller: curPinCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        obscureText: true,
+                        style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+                        decoration: pinDeco(
+                          lang == 'en' ? 'Current PIN' : 'PIN Saat Ini',
+                          Icons.lock_clock_outlined,
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().length != 4) {
+                            return AppStrings.tr('pin_required', lang);
+                          }
+                          if (!context.read<TradeProvider>().verifyPin(val.trim())) {
+                            return lang == 'en' ? 'Current PIN is incorrect' : 'PIN saat ini salah';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    TextFormField(
+                      controller: pin1Ctrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      obscureText: true,
+                      style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+                      decoration: pinDeco(
+                        AppStrings.tr('setup_pin_title', lang),
+                        Icons.lock_outline,
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().length != 4) {
+                          return AppStrings.tr('pin_required', lang);
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: pin2Ctrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      obscureText: true,
+                      style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+                      decoration: pinDeco(
+                        AppStrings.tr('confirm_pin_title', lang),
+                        Icons.lock_reset_outlined,
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().length != 4) {
+                          return AppStrings.tr('pin_required', lang);
+                        }
+                        if (val.trim() != pin1Ctrl.text.trim()) {
+                          return AppStrings.tr('pin_mismatch_inline', lang);
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          if (formKey.currentState!.validate()) {
+                            final p1 = pin1Ctrl.text.trim();
+                            context.read<TradeProvider>().setPinCode(p1);
+                            Navigator.of(ctx).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(AppStrings.tr(isChanging ? 'pin_changed' : 'pin_enabled', lang)),
+                              ),
+                            );
+                          }
+                        },
+                        child: Text(
+                          AppStrings.tr('save_changes', lang),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: pin2Ctrl,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.tr('confirm_pin_title', lang),
-                    counterText: '',
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(AppStrings.tr('cancel', lang)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (isChanging && hasCurrentPin) {
-                  if (!context.read<TradeProvider>().verifyPin(curPinCtrl.text.trim())) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(lang == 'en' ? 'Current PIN is incorrect' : 'PIN saat ini salah')),
-                    );
-                    return;
-                  }
-                }
-                final p1 = pin1Ctrl.text.trim();
-                final p2 = pin2Ctrl.text.trim();
-                if (p1.length == 4 && p1 == p2) {
-                  context.read<TradeProvider>().setPinCode(p1);
-                  Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(AppStrings.tr(isChanging ? 'pin_changed' : 'pin_enabled', lang)),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(AppStrings.tr('pin_mismatch', lang)),
-                    ),
-                  );
-                }
-              },
-              child: Text(AppStrings.tr('save_changes', lang)),
-            ),
-          ],
         );
       },
     );
   }
 
   void _showAddAccountDialog(BuildContext context, String lang) {
-    final nameCtrl = TextEditingController();
-    final capCtrl = TextEditingController(text: '1000');
-    String type = 'real';
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return AlertDialog(
-              title: Text(AppStrings.tr('add_new_account', lang)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.tr('account_name', lang),
-                      hintText: AppStrings.tr('account_name_hint', lang),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: type,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.tr('account_type', lang),
-                    ),
-                    items: [
-                      DropdownMenuItem(value: 'real', child: Text(AppStrings.tr('type_real', lang))),
-                      DropdownMenuItem(value: 'demo', child: Text(AppStrings.tr('type_demo', lang))),
-                      DropdownMenuItem(value: 'prop_firm', child: Text(AppStrings.tr('type_prop', lang))),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => type = val);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: capCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: AppStrings.tr('account_capital', lang),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: Text(AppStrings.tr('cancel', lang)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () {
-                    final name = nameCtrl.text.trim();
-                    final cap = double.tryParse(capCtrl.text.trim()) ?? 1000.0;
-                    if (name.isNotEmpty) {
-                      final provider = context.read<TradeProvider>();
-                      final newAcc = TradingAccount(
-                        id: 'acc_${DateTime.now().millisecondsSinceEpoch}',
-                        name: name,
-                        type: type,
-                        initialCapital: cap,
-                        currency: provider.settings.accountCurrency,
-                      );
-                      provider.addAccount(newAcc);
-                      _capController.text = cap.toStringAsFixed(0);
-                      Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(AppStrings.tr('account_created', lang))),
-                      );
-                    }
-                  },
-                  child: Text(AppStrings.tr('add_symbol', lang)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+    AccountFormDialog.show(context);
   }
 
   @override
@@ -1144,39 +1563,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ],
                               ),
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
+                              tooltip: AppStrings.tr('edit_account', lang),
+                              onPressed: () => AccountFormDialog.show(context, accountToEdit: acc),
+                            ),
                             if (settings.accounts.length > 1)
                               IconButton(
                                 icon: const Icon(Icons.delete_outline, color: AppColors.lose, size: 20),
-                                onPressed: () {
-                                  showDialog(
+                                tooltip: AppStrings.tr('delete_account', lang),
+                                onPressed: () async {
+                                  final confirmed = await _showConfirmDialog(
                                     context: context,
-                                    builder: (dCtx) => AlertDialog(
-                                      title: Text(AppStrings.tr('delete_account', lang)),
-                                      content: Text(
-                                        AppStrings.tr(
-                                          'confirm_delete_account',
-                                          lang,
-                                          params: {'acc': acc.name},
-                                        ),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.of(dCtx).pop(),
-                                          child: Text(AppStrings.tr('cancel', lang)),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            Navigator.of(dCtx).pop();
-                                            tradeProvider.deleteAccount(acc.id);
-                                          },
-                                          child: Text(
-                                            AppStrings.tr('delete', lang),
-                                            style: const TextStyle(color: AppColors.lose),
-                                          ),
-                                        ),
-                                      ],
+                                    title: AppStrings.tr('delete_account', lang),
+                                    message: AppStrings.tr(
+                                      'confirm_delete_account',
+                                      lang,
+                                      params: {'acc': acc.name},
                                     ),
+                                    confirmLabel: AppStrings.tr('delete', lang),
+                                    confirmColor: AppColors.lose,
+                                    icon: Icons.delete_outline_rounded,
                                   );
+                                  if (confirmed == true && mounted) {
+                                    tradeProvider.deleteAccount(acc.id);
+                                  }
                                 },
                               ),
                           ],
@@ -1758,35 +2169,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showEditNameDialog(String lang) {
     final provider = context.read<TradeProvider>();
     final ctrl = TextEditingController(text: provider.settings.traderName);
+    final formKey = GlobalKey<FormState>();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final softColor = isDark ? AppColors.darkSoft : AppColors.lightSoft;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(lang == 'en' ? 'Your Name' : 'Nama Anda'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          maxLength: 24,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(counterText: ''),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(AppStrings.tr('cancel', lang)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+      builder: (ctx) => Dialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.person_outline_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          lang == 'en' ? 'Your Name' : 'Nama Anda',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, color: mutedColor, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        splashRadius: 20,
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: ctrl,
+                    autofocus: true,
+                    maxLength: 24,
+                    textCapitalization: TextCapitalization.words,
+                    style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+                    decoration: InputDecoration(
+                      labelText: AppStrings.tr('trader_name', lang),
+                      hintText: AppStrings.tr('trader_name_hint', lang),
+                      prefixIcon: Icon(Icons.badge_outlined, color: mutedColor, size: 20),
+                      counterText: '',
+                      filled: true,
+                      fillColor: softColor,
+                      errorMaxLines: 2,
+                      helperMaxLines: 2,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.lose, width: 1.4),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.lose, width: 1.8),
+                      ),
+                      errorStyle: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.lose,
+                      ),
+                    ),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) {
+                        return AppStrings.tr('name_required', lang);
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        if (formKey.currentState!.validate()) {
+                          final n = ctrl.text.trim();
+                          provider.updateTraderName(n);
+                          Navigator.of(ctx).pop();
+                        }
+                      },
+                      child: Text(
+                        AppStrings.tr('save_changes', lang),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            onPressed: () {
-              final n = ctrl.text.trim();
-              if (n.isNotEmpty) provider.updateTraderName(n);
-              Navigator.of(ctx).pop();
-            },
-            child: Text(AppStrings.tr('save_changes', lang)),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -4,8 +4,8 @@ class AppInfo {
   AppInfo._();
 
   static const String appName = 'TraderLog';
-  static const String version = '1.1.0';
-  static const String buildNumber = '2';
+  static const String version = '1.1.5';
+  static const String buildNumber = '3';
 
   static const String authorName = 'zacxyonly';
   static const String authorUrl = 'https://github.com/zacxyonly';

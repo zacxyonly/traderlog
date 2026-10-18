@@ -305,9 +305,11 @@ class _RiskRulesDialog extends StatefulWidget {
 }
 
 class _RiskRulesDialogState extends State<_RiskRulesDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _riskCtl;
   late final TextEditingController _dailyCtl;
   late final TextEditingController _ddCtl;
+  bool _submitted = false;
 
   @override
   void initState() {
@@ -327,6 +329,9 @@ class _RiskRulesDialogState extends State<_RiskRulesDialog> {
   }
 
   void _save() {
+    setState(() => _submitted = true);
+    if (!_formKey.currentState!.validate()) return;
+
     final acc = widget.provider.activeAccount;
     final isProp = acc.type == 'prop_firm';
     widget.provider.updateRiskRules(
@@ -338,50 +343,261 @@ class _RiskRulesDialogState extends State<_RiskRulesDialog> {
     Navigator.of(context).pop();
   }
 
-  Widget _field(TextEditingController c, String label) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: TextField(
-          controller: c,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            labelText: label,
-            hintText: AppStrings.tr('risk_hint_empty', widget.lang),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+  Widget _field(
+    TextEditingController c,
+    String label,
+    Color softColor,
+    Color borderColor,
+    Color mutedColor,
+    Color textColor,
+    String lang,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextFormField(
+        controller: c,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        style: TextStyle(
+          color: textColor,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: AppStrings.tr('risk_hint_empty', lang),
+          suffixText: '%',
+          suffixStyle: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: mutedColor,
+          ),
+          labelStyle: TextStyle(
+            fontSize: 13,
+            color: mutedColor,
+            fontWeight: FontWeight.w600,
+          ),
+          hintStyle: TextStyle(
+            fontSize: 13,
+            color: mutedColor.withOpacity(0.65),
+          ),
+          filled: true,
+          fillColor: softColor,
+          errorMaxLines: 2,
+          helperMaxLines: 2,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: borderColor),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.8),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.lose, width: 1.4),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.lose, width: 1.8),
+          ),
+          errorStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.lose,
           ),
         ),
-      );
+        validator: (val) {
+          if (val == null || val.trim().isEmpty) return null;
+          final v = double.tryParse(val.trim().replaceAll(',', '.'));
+          if (v == null || v <= 0 || v > 100) {
+            return lang == 'en'
+                ? 'Enter a valid percent (0.1 - 100)'
+                : 'Rentang persentase harus antara 0.1% - 100%';
+          }
+          return null;
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final lang = widget.lang;
-    final isProp = widget.provider.activeAccount.type == 'prop_firm';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final softColor = isDark ? AppColors.darkSoft : AppColors.lightSoft;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
 
-    return AlertDialog(
-      title: Text(AppStrings.tr('risk_rules_title', lang)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _field(_riskCtl, AppStrings.tr('risk_max_per_trade', lang)),
-            if (isProp) ...[
-              _field(_dailyCtl, AppStrings.tr('risk_daily_limit', lang)),
-              _field(_ddCtl, AppStrings.tr('risk_max_dd', lang)),
-            ],
-          ],
+    final acc = widget.provider.activeAccount;
+    final isProp = acc.type == 'prop_firm';
+
+    IconData typeIcon;
+    Color typeColor;
+    switch (acc.type) {
+      case 'prop_firm':
+        typeIcon = Icons.emoji_events_rounded;
+        typeColor = const Color(0xFFF59E0B);
+        break;
+      case 'demo':
+        typeIcon = Icons.science_rounded;
+        typeColor = const Color(0xFF6366F1);
+        break;
+      case 'real':
+      default:
+        typeIcon = Icons.trending_up_rounded;
+        typeColor = AppColors.primary;
+        break;
+    }
+
+    return Dialog(
+      backgroundColor: cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: _submitted
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.16),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        AppStrings.tr('risk_rules_title', lang),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: mutedColor, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      splashRadius: 20,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Account type card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: typeColor.withOpacity(isDark ? 0.18 : 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: typeColor.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: typeColor.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(typeIcon, size: 20, color: typeColor),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              acc.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w800,
+                                color: textColor,
+                              ),
+                            ),
+                            Text(
+                              acc.typeLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: typeColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _field(_riskCtl, AppStrings.tr('risk_max_per_trade', lang), softColor, borderColor, mutedColor, textColor, lang),
+                if (isProp) ...[
+                  _field(_dailyCtl, AppStrings.tr('risk_daily_limit', lang), softColor, borderColor, mutedColor, textColor, lang),
+                  _field(_ddCtl, AppStrings.tr('risk_max_dd', lang), softColor, borderColor, mutedColor, textColor, lang),
+                ],
+                const SizedBox(height: 10),
+
+                // Wide main button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      AppStrings.tr('save_rules', lang),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(AppStrings.tr('cancel', lang)),
-        ),
-        TextButton(
-          onPressed: _save,
-          child: Text(AppStrings.tr('save_rules', lang)),
-        ),
-      ],
     );
   }
 }
