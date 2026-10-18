@@ -33,6 +33,9 @@
   <a href="https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml">
     <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-CI_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
   </a>
+  <a href="https://sociabuzz.com/zacxyonly/tribe">
+    <img src="https://img.shields.io/badge/SociaBuzz-Support%20Project-fe5f55?style=for-the-badge&logo=heart" alt="Support via SociaBuzz" />
+  </a>
 </p>
 
 <p align="center">
@@ -281,6 +284,14 @@ Kontribusi, pelaporan bug, dan saran fitur sangat diapresiasi!
 3. Commit perubahan Anda (`git commit -m "feat: Menambahkan fitur baru"`).
 4. Push branch ke repository Anda (`git push origin feature/FiturKeren`).
 5. Buat **Pull Request**.
+
+---
+
+## ☕ Dukungan
+
+Jika Anda merasa TraderLog bermanfaat dan ingin mendukung pengembangannya:
+
+[![Support via SociaBuzz](https://img.shields.io/badge/SociaBuzz-Support%20Project-fe5f55?style=for-the-badge&logo=heart)](https://sociabuzz.com/zacxyonly/tribe)
 
 ---
 

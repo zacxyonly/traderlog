@@ -33,6 +33,9 @@
   <a href="https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml">
     <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-CI_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
   </a>
+  <a href="https://sociabuzz.com/zacxyonly/tribe">
+    <img src="https://img.shields.io/badge/SociaBuzz-Support%20Project-fe5f55?style=for-the-badge&logo=heart" alt="Support via SociaBuzz" />
+  </a>
 </p>
 
 <p align="center">
@@ -278,6 +281,14 @@ Contributions, bug reports, and suggestions are welcome!
 3. Commit your changes (`git commit -m "feat: Add AmazingFeature"`).
 4. Push to your branch (`git push origin feature/AmazingFeature`).
 5. Open a **Pull Request**.
+
+---
+
+## ☕ Support
+
+If you find TraderLog helpful, consider supporting the project:
+
+[![Support via SociaBuzz](https://img.shields.io/badge/SociaBuzz-Support%20Project-fe5f55?style=for-the-badge&logo=heart)](https://sociabuzz.com/zacxyonly/tribe)
 
 ---
 
