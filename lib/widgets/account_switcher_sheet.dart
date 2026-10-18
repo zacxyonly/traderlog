@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
-import '../models/trading_account.dart';
 import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';

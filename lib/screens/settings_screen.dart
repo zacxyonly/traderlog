@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
-import '../models/trading_account.dart';
 import '../providers/trade_provider.dart';
 import '../services/backup_service.dart';
 import '../services/csv_service.dart';
