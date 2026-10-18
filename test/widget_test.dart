@@ -342,7 +342,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(fxRes!.pips.toStringAsFixed(1), '50.0');
       expect(fxRes.pnl.toStringAsFixed(1), '50.0');
 
-      // USD/JPY SELL: Entry 155.00, Exit 154.50 (50 pips), Lot 0.1 => $50
+      // USD/JPY SELL: Entry 155.00, Exit 154.50 (50 pips), Lot 0.1
+      // Pip value = (0.01 / 154.50) * 100,000 * 0.1 = 0.64725/pip * 50 pips ≈ $32.4 (Estimate)
       final jpyRes = PnlCalculator.calculate(
         symbol: 'USD/JPY',
         side: TradeSide.sell,
@@ -352,7 +353,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       );
       expect(jpyRes, isNotNull);
       expect(jpyRes!.pips.toStringAsFixed(1), '50.0');
-      expect(jpyRes.pnl.toStringAsFixed(1), '50.0');
+      expect(jpyRes.pnl.toStringAsFixed(1), '32.4');
+      expect(jpyRes.isEstimate, true);
     });
 
     test('Calculates Crypto & Index point moves correctly', () {
