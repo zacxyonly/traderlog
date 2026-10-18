@@ -48,3 +48,4 @@ file.txt
 *.jks
 *.keystore
 *.p12
+keystore_base64.txt

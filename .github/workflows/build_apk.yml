@@ -63,7 +63,7 @@ jobs:
             exit 1
           fi
           # Keep the keystore outside the workspace so it can never be committed or uploaded.
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "TRADERLOG_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           echo "TRADERLOG_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "TRADERLOG_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
