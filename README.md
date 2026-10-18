@@ -73,29 +73,12 @@ Built with **Flutter** and local **SQLite (SQFlite)**, TraderLog guarantees 100%
 * **💱 Multi-Currency & Live Exchange Rates**: Support for account currencies (USD, IDR, USDC, USDT, EUR, GBP, JPY, SGD, AUD) with real-time exchange rate sync via Open FX Market API.
 * **🌐 Complete Bilingual Support (EN & ID)**: Instant toggle between English 🇬🇧 and Bahasa Indonesia 🇮🇩 across all dialogs, analytics, and navigation.
 
----
+## 📱 App Screenshots
 
-## 📱 Application Interface Mockup
-
-```
-┌─────────────────────────────────┐   ┌─────────────────────────────────┐   ┌─────────────────────────────────┐
-│           TRADE JOURNAL         │   │       PERFORMANCE SUMMARY       │   │        SETTINGS & PRIVACY       │
-├─────────────────────────────────┤   ├─────────────────────────────────┤   ├─────────────────────────────────┤
-│ [ Primary Real Account ▾ ]      │   │ Range: [All] [30 Days] [7 Days] │   │ [Capital & FX] [Accounts] [Lock]│
-│ [ Account Balance ]   $1,450.00 │   │                                 │   │                                 │
-│ TraderLog         Rp 26.097.100 │   │  Win Rate: 68%   PF: 2.14       │   │ Multi-Account Portfolio:        │
-│                                 │   │  Realized RR: 1:2.40  DD: -4.8% │   │  [•] Primary Real (Active)      │
-│ 🔍 Search symbol, tag, note...  │   │                                 │   │  [ ] Demo Practice Account      │
-│ [All] [WIN] [LOSE] [BE]         │   │ ── Interactive Equity Curve ────│   │  [ ] Prop Firm Evaluation       │
-│                                 │   │  Capital: $1,000 | Peak: $1,620 │   │                                 │
-│ ▾ October 2026        +$320.00  │   │                                 │   │ Security & Privacy:             │
-│  • XAU/USD BUY         +$150.00 │   │ ── Consistency PnL Heatmap ──── │   │  [x] App Lock with PIN          │
-│    Entry: 2650 | Lot: 0.10      │   │   S  M  T  W  T  F  S           │   │  [x] Fingerprint Biometrics     │
-│    Tags: [BOS] [FVG] [Discipline│   │  [+][+][-][+][+][-][+]          │   │                                 │
-│    [📷 Setup]  [📷 Outcome]     │   │  Win Days: 14 | Lose Days: 5    │   │ Backup & CSV Export:            │
-│                                 │   │  Month Net PnL: +$420.00        │   │  [ ☁️ Full ZIP Backup ]         │
-└─────────────────────────────────┘   └─────────────────────────────────┘   └─────────────────────────────────┘
-```
+| 📱 Trade Journal | 📊 Performance Summary | ⚙️ Settings & Security |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/jurnal_tab.jpg" width="260" alt="Trade Journal" /> | <img src="docs/screenshots/summary_tab.jpg" width="260" alt="Performance Summary" /> | <img src="docs/screenshots/setting_tab.jpg" width="260" alt="Settings & Security" /> |
+| *Balance Hero Card, Tags & History* | *Interactive Equity Curve & PnL Heatmap* | *Multi-Account Portfolio & Security Lock* |
 
 ---
 
@@ -126,6 +109,8 @@ traderlog/
 │       └── mipmap-*/              # Adaptive compiled launcher icons
 ├── assets/
 │   └── icon/                      # Adaptive launcher icon assets
+├── docs/
+│   └── screenshots/               # App preview screenshots (Journal, Summary, Settings)
 ├── lib/
 │   ├── constants/
 │   │   └── app_colors.dart        # Unified theme palette (Emerald, Navy, Wine Red, Amber)

@@ -73,29 +73,12 @@ Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQ
 * **💱 Kurs Otomatis & Multi-Currency**: Dukungan mata uang akun (USD, IDR, USDC, USDT, EUR, GBP, JPY, SGD, AUD) serta sinkronisasi kurs live otomatis via open FX market API.
 * **🌐 Bilingual Lengkap (ID & EN)**: Beralih instan antara Bahasa Indonesia 🇮🇩 dan English 🇬🇧 di seluruh menu, grafik, kalender, dan pesan dialog.
 
----
+## 📱 Tangkapan Layar Aplikasi
 
-## 📱 Tampilan & Antarmuka Aplikasi
-
-```
-┌─────────────────────────────────┐   ┌─────────────────────────────────┐   ┌─────────────────────────────────┐
-│           JURNAL TRADE          │   │        RINGKASAN PERFORMA       │   │        PENGATURAN (ATUR)        │
-├─────────────────────────────────┤   ├─────────────────────────────────┤   ├─────────────────────────────────┤
-│ [ Akun Real Utama ▾ ]           │   │ Periode: [Semua] [30 Hari] [7h] │   │ [Modal & Kurs] [Akun] [Kemanan] │
-│ [ Total Akun ]     $1,450.00    │   │                                 │   │                                 │
-│ TraderLog      Rp 26.097.100    │   │  Win Rate: 68%   PF: 2.14       │   │ Multi-Akun Portofolio:          │
-│                                 │   │  R:R Aktual: 1:2.40  DD: -4.8%  │   │  [•] Akun Real Utama (Active)   │
-│ 🔍 Cari symbol, setup, emosi... │   │                                 │   │  [ ] Akun Latihan Demo          │
-│ [Semua] [WIN] [LOSE] [BE]       │   │ ── Grafik Equity Curve (Scrub) ─│   │  [ ] Evaluasi Prop Firm         │
-│                                 │   │  Modal: $1,000 | Puncak: $1,620 │   │                                 │
-│ ▾ Oktober 2026      +$320.00    │   │                                 │   │ Keamanan & Privasi:             │
-│  • XAU/USD BUY       +$150.00   │   │ ── Kalender PnL Konsistensi ─── │   │  [x] Kunci Aplikasi dengan PIN  │
-│    Entry: 2650 | Lot: 0.10      │   │   S  M  T  W  T  F  S           │   │  [x] Buka dengan Sidik Jari     │
-│    Tags: [BOS] [FVG] [Disiplin] │   │  [+][+][-][+][+][-][+]          │   │                                 │
-│    [📷 Setup]  [📷 Outcome]     │   │  Win Days: 14 | Lose Days: 5    │   │ Cadangan Google Drive & CSV:    │
-│                                 │   │  Net PnL Bulan Ini: +$420.00    │   │  [ ☁️ Simpan Cadangan ZIP ]     │
-└─────────────────────────────────┘   └─────────────────────────────────┘   └─────────────────────────────────┘
-```
+| 📱 Jurnal Transaksi | 📊 Ringkasan Performa | ⚙️ Pengaturan & Portofolio |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/jurnal_tab.jpg" width="260" alt="Jurnal Trade" /> | <img src="docs/screenshots/summary_tab.jpg" width="260" alt="Ringkasan Performa" /> | <img src="docs/screenshots/setting_tab.jpg" width="260" alt="Pengaturan & Keamanan" /> |
+| *Kartu Saldo, Tag Emosi & Histori Trade* | *Grafik Equity Curve & Kalender PnL* | *Multi-Akun Portofolio & Kunci PIN* |
 
 ---
 
@@ -128,6 +111,8 @@ traderlog/
 │       └── mipmap-*/              # Adaptive launcher icon untuk perangkat
 ├── assets/
 │   └── icon/                      # Aset ikon aplikasi
+├── docs/
+│   └── screenshots/               # Tangkapan layar antarmuka aplikasi (Jurnal, Ringkasan, Atur)
 ├── lib/
 │   ├── constants/
 │   │   └── app_colors.dart        # Palet warna primer (Emerald, Navy, Wine Red, Amber)
