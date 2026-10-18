@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/trading_account.dart';
 import '../providers/trade_provider.dart';
+import '../services/backup_service.dart';
 import '../services/csv_service.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
@@ -73,46 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final provider = context.read<TradeProvider>();
     final settings = provider.settings;
     _capController.text = provider.activeAccount.initialCapital.toStringAsFixed(0);
-    _fxController.text = _formatRate(settings.usdToIdrRate);
-  }
-
-  Future<void> _syncRate(String lang) async {
-    final provider = context.read<TradeProvider>();
-    final newRate = await provider.syncExchangeRate();
-    if (!mounted) return;
-    if (newRate != null) {
-      _fxController.text = _formatRate(newRate);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          content: Text(
-            AppStrings.tr(
-              'rate_synced',
-              lang,
-              params: {
-                'base': provider.activeAccount.currency,
-                'target': provider.settings.exchangeCurrency,
-                'rate': _formatRate(newRate),
-              },
-            ),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          content: Text(AppStrings.tr('rate_sync_failed', lang)),
-        ),
-      );
-    }
+    _fxController.text = _formatRate(settings.exchangeRate);
   }
 
   @override
@@ -136,9 +98,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final fx = double.tryParse(_fxController.text.trim());
     if (fx != null && fx > 0) {
       final provider = context.read<TradeProvider>();
-      provider.updateSettings(provider.settings.copyWith(usdToIdrRate: fx));
+      provider.updateExchangeRate(fx);
     }
   }
+
 
   void _setTheme(ThemeMode mode) {
     final provider = context.read<TradeProvider>();
@@ -228,51 +191,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _backupToGoogleDrive(String lang) async {
-    final provider = context.read<TradeProvider>();
-    final trades = provider.allTrades;
-    if (trades.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppStrings.tr('no_trades_export', lang))),
-      );
-      return;
-    }
-
-    provider.setSystemPickerActive(true);
-    try {
-      final nowStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
-      final accountName = provider.activeAccount.name.replaceAll(' ', '_');
-      final fileName = 'TraderLog_CloudBackup_${accountName}_$nowStr.csv';
-
-      await CSVService.exportTrades(
-        trades: trades,
-        initialCapital: provider.activeAccount.initialCapital,
-        customFileName: fileName,
-        shareText: 'TraderLog Cloud Backup ($accountName)',
-      );
-
-      await provider.recordCloudBackup();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: AppColors.primary,
-            content: Text('Cadangan disiapkan. Pilih Google Drive pada menu berbagi.'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuat cadangan cloud: $e')),
-        );
-      }
-    } finally {
-      Future.delayed(const Duration(milliseconds: 600), () {
-        provider.setSystemPickerActive(false);
-      });
-    }
-  }
-
   Future<void> _importCSV(String lang) async {
     final provider = context.read<TradeProvider>();
     provider.setSystemPickerActive(true);
@@ -291,9 +209,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final parseResult = CSVService.parseCSV(
         content,
         existingTrades: provider.trades,
+        defaultAccountId: provider.activeAccount.id,
       );
 
       if (!mounted) return;
+
 
       if (parseResult.trades.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -410,6 +330,109 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _exportFullBackup(String lang) async {
+    final provider = context.read<TradeProvider>();
+    provider.setSystemPickerActive(true);
+    try {
+      await BackupService.exportFullBackup(
+        shareText: 'TraderLog Full Backup (.zip)',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.lose,
+            content: Text('Gagal mengekspor arsip cadangan: $e'),
+          ),
+        );
+      }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
+    }
+  }
+
+  Future<void> _restoreFullBackup(String lang) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppStrings.tr('restore_confirm_title', lang)),
+        content: Text(AppStrings.tr('restore_confirm_body', lang)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppStrings.tr('cancel', lang)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final provider = context.read<TradeProvider>();
+    provider.setSystemPickerActive(true);
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final res = await BackupService.restoreFullBackup(result.files.single.path!);
+        if (mounted) {
+          if (res.success) {
+            await provider.loadData();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: AppColors.primary,
+                content: Text(
+                  AppStrings.tr('restore_success', lang, params: {
+                    'count': res.restoredImagesCount.toString(),
+                  }),
+                ),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: AppColors.lose,
+                content: Text(
+                  res.message ??
+                      AppStrings.tr('restore_failed', lang, params: {'error': ''}),
+                ),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.lose,
+            content: Text(
+              AppStrings.tr('restore_failed', lang, params: {'error': e.toString()}),
+            ),
+          ),
+        );
+      }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
+    }
   }
 
   void _confirmResetTrades(String lang) {
@@ -892,71 +915,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Nilai Kurs Header + Sinkronkan Kurs Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: _buildLabel(
-                          AppStrings.tr(
-                            'exchange_rate_label',
-                            lang,
-                            params: {
-                              'target': settings.exchangeCurrency,
-                              'base': activeAcc.currency,
-                            },
-                          ),
-                          mutedColor,
-                        ),
-                      ),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: tradeProvider.isSyncingRate
-                            ? null
-                            : () => _syncRate(lang),
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            left: 8,
-                            right: 4,
-                            bottom: 6,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (tradeProvider.isSyncingRate)
-                                const SizedBox(
-                                  width: 12,
-                                  height: 12,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.primary,
-                                  ),
-                                )
-                              else
-                                const Icon(
-                                  Icons.sync_rounded,
-                                  size: 14,
-                                  color: AppColors.primary,
-                                ),
-                              const SizedBox(width: 4),
-                              Text(
-                                AppStrings.tr(
-                                  tradeProvider.isSyncingRate
-                                      ? 'syncing_rate'
-                                      : 'sync_rate',
-                                  lang,
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                  // Nilai Kurs Header
+                  _buildLabel(
+                    AppStrings.tr(
+                      'exchange_rate_label',
+                      lang,
+                      params: {
+                        'target': settings.exchangeCurrency,
+                        'base': activeAcc.currency,
+                      },
+                    ),
+                    mutedColor,
                   ),
                   TextField(
                     controller: _fxController,
@@ -970,28 +939,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: _inputDecoration(
                       softColor,
                       borderColor,
-                      '17998',
-                    ).copyWith(
-                      suffixIcon: IconButton(
-                        icon: tradeProvider.isSyncingRate
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.primary,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.sync_rounded,
-                                color: AppColors.primary,
-                                size: 20,
-                              ),
-                        tooltip: AppStrings.tr('sync_rate', lang),
-                        onPressed: tradeProvider.isSyncingRate
-                            ? null
-                            : () => _syncRate(lang),
-                      ),
+                      '16000',
                     ),
                     onSubmitted: (_) => _saveFx(),
                     onChanged: (_) => _saveFx(),
@@ -999,7 +947,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      'Preview: 1,000 ${settings.accountCurrency} = ${Formatters.formatAmount(1000.0 * settings.usdToIdrRate, currency: settings.exchangeCurrency)}',
+                      'Preview: 1,000 ${settings.accountCurrency} = ${Formatters.formatAmount(1000.0 * settings.exchangeRate, currency: settings.exchangeCurrency)}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1009,6 +957,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+
 
             // Category 1: Multi-Akun
             if (_selectedCategoryIndex == 1)
@@ -1451,11 +1400,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-            // Category 5: Data & Cloud (Google Drive)
+            // Category 5: Cadangan & Pemulihan (Backup & Restore)
             if (_selectedCategoryIndex == 5)
               Column(
                 children: [
-                  // Google Drive Cloud Backup Card
                   _buildCard(
                     cardColor,
                     borderColor,
@@ -1463,17 +1411,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     [
                       Row(
                         children: [
-                          const Icon(Icons.cloud_upload_outlined, color: AppColors.primary, size: 24),
+                          const Icon(Icons.archive_outlined, color: AppColors.primary, size: 24),
                           const SizedBox(width: 10),
                           Text(
-                            AppStrings.tr('cloud_backup_title', lang),
+                            lang == 'en' ? 'Full Backup & Restore' : 'Cadangan & Pemulihan Lengkap',
                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        AppStrings.tr('cloud_backup_sub', lang),
+                        lang == 'en'
+                            ? 'Create an all-inclusive archive (.zip) containing all accounts, trades, settings, and chart screenshots, or restore from a previous backup.'
+                            : 'Buat arsip lengkap (.zip) berisi seluruh akun, catatan trade, pengaturan, dan screenshot chart, atau pulihkan dari cadangan sebelumnya.',
                         style: TextStyle(fontSize: 12.5, color: mutedColor),
                       ),
                       if (settings.lastBackupDate != null && settings.lastBackupDate!.isNotEmpty) ...[
@@ -1488,55 +1438,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                       const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.add_to_drive_rounded, size: 18),
-                          label: Text(AppStrings.tr('backup_google_drive', lang)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          onPressed: () => _backupToGoogleDrive(lang),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: softColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AppStrings.tr('backup_guide_title', lang),
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.archive_outlined, size: 18),
+                              label: Text(
+                                AppStrings.tr('export_zip', lang),
+                                style: const TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => _exportFullBackup(lang),
                             ),
-                            const SizedBox(height: 4),
-                            Text(AppStrings.tr('backup_step_1', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
-                            Text(AppStrings.tr('backup_step_2', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
-                            Text(AppStrings.tr('backup_step_3', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.unarchive_outlined, size: 18, color: AppColors.primary),
+                              label: Text(
+                                AppStrings.tr('restore_zip', lang),
+                                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: BorderSide(color: AppColors.primary.withOpacity(0.5)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => _restoreFullBackup(lang),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                      const SizedBox(height: 20),
+                      Divider(color: borderColor, height: 1),
+                      const SizedBox(height: 16),
 
-                  // Local CSV Backup Card
-                  _buildCard(
-                    cardColor,
-                    borderColor,
-                    isDark,
-                    [
-                      _buildLabel(AppStrings.tr('data_backup_title', lang), mutedColor),
+                      // CSV Spreadsheet Section
+                      _buildLabel(
+                        lang == 'en' ? 'Spreadsheet (CSV)' : 'Lembar Kerja (CSV)',
+                        mutedColor,
+                      ),
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.only(bottom: 12),
                         child: Text(
                           AppStrings.tr('data_backup_sub', lang),
                           style: TextStyle(fontSize: 12.5, color: mutedColor),
@@ -1571,7 +1519,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 20),
+                      Divider(color: borderColor, height: 1),
                       const SizedBox(height: 16),
+
+                      // Danger zone: Reset active account trades
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -1592,6 +1544,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+
           ],
         ),
       ),

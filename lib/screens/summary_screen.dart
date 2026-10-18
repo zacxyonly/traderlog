@@ -303,14 +303,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           : '-',
                       textColor,
                       borderColor,
-                    ),
-                    if (summary.totalPipsGained != 0.0)
-                      _buildRow(
-                        'Total Pergerakan (Pips/Pts)',
-                        '${summary.totalPipsGained > 0 ? '+' : ''}${summary.totalPipsGained.toStringAsFixed(1)}',
-                        summary.totalPipsGained > 0 ? AppColors.winText : AppColors.loseText,
-                        borderColor,
-                      ),
                     _buildRow(
                       AppStrings.tr('current_streak', lang),
                       summary.streakCount > 0

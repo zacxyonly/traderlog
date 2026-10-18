@@ -41,3 +41,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Keystores and sensitive credentials
+*.jks
+*.keystore
+*.jceks
+key.properties
+android/key.properties
+android/app/key.properties
+release-output/

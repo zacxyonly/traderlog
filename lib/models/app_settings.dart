@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'trading_account.dart';
 
@@ -8,7 +9,10 @@ class AppSettings {
   final String accountCurrency;
   final String exchangeCurrency;
   final double initialCapital;
-  final double usdToIdrRate;
+  static const Object _sentinel = Object();
+
+  final double exchangeRate;
+  double get usdToIdrRate => exchangeRate;
   final ThemeMode themeMode;
   final List<String> symbols;
 
@@ -37,7 +41,8 @@ class AppSettings {
     this.accountCurrency = 'USD',
     this.exchangeCurrency = 'IDR',
     this.initialCapital = 1000.0,
-    this.usdToIdrRate = 17998.0,
+    double? exchangeRate,
+    double? usdToIdrRate,
     this.themeMode = ThemeMode.system,
     List<String>? symbols,
     this.activeAccountId = 'acc_real',
@@ -45,7 +50,8 @@ class AppSettings {
     this.pinCode,
     this.isBiometricEnabled = false,
     this.lastBackupDate,
-  })  : symbols = symbols ?? List.from(defaultSymbols),
+  })  : exchangeRate = exchangeRate ?? usdToIdrRate ?? 16000.0,
+        symbols = symbols ?? List.from(defaultSymbols),
         accounts = accounts ?? TradingAccount.defaultAccounts();
 
   TradingAccount get activeAccount {
@@ -57,6 +63,23 @@ class AppSettings {
 
   bool get isPinSet => pinCode != null && pinCode!.trim().isNotEmpty;
 
+  /// Generates a salted SHA-256 hash for PIN code
+  static String hashPin(String pin) {
+    const salt = 'traderlog_pin_salt_v1';
+    final bytes = utf8.encode('$salt$pin');
+    return sha256.convert(bytes).toString();
+  }
+
+  /// Verifies entered PIN against stored PIN or Hash with backward compatibility
+  static bool verifyPin(String enteredPin, String? storedPinOrHash) {
+    if (storedPinOrHash == null || storedPinOrHash.isEmpty) return false;
+    if (storedPinOrHash.length == 64 &&
+        RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(storedPinOrHash)) {
+      return hashPin(enteredPin) == storedPinOrHash.toLowerCase();
+    }
+    return enteredPin == storedPinOrHash;
+  }
+
   AppSettings copyWith({
     String? traderName,
     String? languageCode,
@@ -64,28 +87,32 @@ class AppSettings {
     String? exchangeCurrency,
     double? initialCapital,
     double? usdToIdrRate,
+    double? exchangeRate,
     ThemeMode? themeMode,
     List<String>? symbols,
     String? activeAccountId,
     List<TradingAccount>? accounts,
-    String? pinCode,
+    Object? pinCode = _sentinel,
     bool? isBiometricEnabled,
-    String? lastBackupDate,
+    Object? lastBackupDate = _sentinel,
   }) {
+    final rate = exchangeRate ?? usdToIdrRate ?? this.exchangeRate;
     return AppSettings(
       traderName: traderName ?? this.traderName,
       languageCode: languageCode ?? this.languageCode,
       accountCurrency: accountCurrency ?? this.accountCurrency,
       exchangeCurrency: exchangeCurrency ?? this.exchangeCurrency,
       initialCapital: initialCapital ?? this.initialCapital,
-      usdToIdrRate: usdToIdrRate ?? this.usdToIdrRate,
+      exchangeRate: rate,
       themeMode: themeMode ?? this.themeMode,
       symbols: symbols ?? List.from(this.symbols),
       activeAccountId: activeAccountId ?? this.activeAccountId,
       accounts: accounts ?? List.from(this.accounts),
-      pinCode: pinCode ?? this.pinCode,
+      pinCode: identical(pinCode, _sentinel) ? this.pinCode : pinCode as String?,
       isBiometricEnabled: isBiometricEnabled ?? this.isBiometricEnabled,
-      lastBackupDate: lastBackupDate ?? this.lastBackupDate,
+      lastBackupDate: identical(lastBackupDate, _sentinel)
+          ? this.lastBackupDate
+          : lastBackupDate as String?,
     );
   }
 
@@ -96,7 +123,8 @@ class AppSettings {
       'account_currency': accountCurrency,
       'exchange_currency': exchangeCurrency,
       'initial_capital': initialCapital.toString(),
-      'usd_to_idr_rate': usdToIdrRate.toString(),
+      'usd_to_idr_rate': exchangeRate.toString(),
+      'exchange_rate': exchangeRate.toString(),
       'theme_mode': themeMode.name,
       'symbols': jsonEncode(symbols),
       'active_account_id': activeAccountId,
@@ -146,7 +174,7 @@ class AppSettings {
           ? map['exchange_currency']!
           : 'IDR',
       initialCapital: double.tryParse(map['initial_capital'] ?? '') ?? 1000.0,
-      usdToIdrRate: double.tryParse(map['usd_to_idr_rate'] ?? '') ?? 17998.0,
+      exchangeRate: double.tryParse(map['exchange_rate'] ?? map['usd_to_idr_rate'] ?? '') ?? 16000.0,
       themeMode: mode,
       symbols: syms,
       activeAccountId: activeAccId,
@@ -157,3 +185,4 @@ class AppSettings {
     );
   }
 }
+

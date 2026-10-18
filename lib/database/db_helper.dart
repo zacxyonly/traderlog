@@ -15,16 +15,22 @@ class DBHelper {
     return _database!;
   }
 
+  Future<void> closeDB() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, filePath);
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
-      onOpen: _onOpenDB,
     );
   }
 
@@ -43,6 +49,7 @@ class DBHelper {
         pl REAL NOT NULL,
         why TEXT,
         note TEXT,
+        tags TEXT,
         image_path TEXT,
         image_path_after TEXT,
         account_id TEXT
@@ -75,23 +82,11 @@ class DBHelper {
         await db.execute('ALTER TABLE trades ADD COLUMN exit REAL;');
       } catch (_) {}
     }
-  }
-
-  Future<void> _onOpenDB(Database db) async {
-    try {
-      await db.execute('ALTER TABLE trades ADD COLUMN image_path_after TEXT;');
-    } catch (_) {}
-    try {
-      await db.execute("ALTER TABLE trades ADD COLUMN account_id TEXT DEFAULT 'acc_real';");
-    } catch (_) {}
-    try {
-      await db.execute('ALTER TABLE trades ADD COLUMN exit REAL;');
-    } catch (_) {}
-    try {
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_date ON trades(date);');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_account ON trades(account_id);');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_trades_sym ON trades(sym);');
-    } catch (_) {}
+    if (oldVersion < 4) {
+      try {
+        await db.execute('ALTER TABLE trades ADD COLUMN tags TEXT;');
+      } catch (_) {}
+    }
   }
 
   // --- Trade Operations ---
@@ -123,6 +118,15 @@ class DBHelper {
     );
   }
 
+  Future<int> deleteTradesByAccount(String accountId) async {
+    final db = await instance.database;
+    return await db.delete(
+      'trades',
+      where: 'account_id = ? OR (? = "acc_real" AND account_id IS NULL)',
+      whereArgs: [accountId, accountId],
+    );
+  }
+
   Future<int> deleteAllTrades() async {
     final db = await instance.database;
     return await db.delete('trades');
@@ -151,6 +155,26 @@ class DBHelper {
     }
 
     await batch.commit(noResult: true);
+  }
+
+  Future<void> replaceTradesForAccount(String accountId, List<Trade> trades) async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'trades',
+        where: 'account_id = ? OR (? = "acc_real" AND account_id IS NULL)',
+        whereArgs: [accountId, accountId],
+      );
+      final batch = txn.batch();
+      for (final trade in trades) {
+        batch.insert(
+          'trades',
+          trade.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   // --- Settings Operations ---

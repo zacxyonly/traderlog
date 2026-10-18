@@ -1,8 +1,12 @@
+import '../utils/pnl_calculator.dart';
+
 enum TradeSide { buy, sell }
 
 enum TradeResult { win, lose, be }
 
 class Trade {
+  static const Object _sentinel = Object();
+
   final String id;
   final DateTime date;
   final String sym;
@@ -15,6 +19,7 @@ class Trade {
   final double pl;
   final String? why;
   final String? note;
+  final String? tags; // Separated setup and emotion tags (e.g. "BOS, FOMO")
   final String? imagePath; // Slot 1: Sebelum Entry (Setup)
   final String? imagePathAfter; // Slot 2: Sesudah Selesai (Eksekusi / Reaksi Harga)
   final String? accountId; // Multi-Account ID
@@ -32,6 +37,7 @@ class Trade {
     required this.pl,
     this.why,
     this.note,
+    this.tags,
     this.imagePath,
     this.imagePathAfter,
     this.accountId = 'acc_real',
@@ -100,41 +106,23 @@ class Trade {
     return '-';
   }
 
-  /// Approximate pips / points gained or lost based on entry and exit
+  /// Approximate pips / points gained or lost based on entry and exit (shared with PnlCalculator)
   double? get pipsGained {
-    if (entry == null || exit == null) return null;
-    final priceDiff = (side == TradeSide.buy) ? (exit! - entry!) : (entry! - exit!);
-    final upper = sym.toUpperCase().replaceAll('/', '').replaceAll('-', '').trim();
-    if (upper.contains('XAU') || upper.contains('GOLD')) {
-      return priceDiff * 10.0;
-    } else if (upper.contains('BTC') ||
-        upper.contains('ETH') ||
-        upper.contains('US30') ||
-        upper.contains('USTEC') ||
-        upper.contains('US500') ||
-        upper.contains('NAS') ||
-        upper.contains('SPX')) {
-      return priceDiff;
-    } else {
-      final isJpy = upper.contains('JPY');
-      final pipSize = isJpy ? 0.01 : 0.0001;
-      return priceDiff / pipSize;
-    }
+    return PnlCalculator.calculatePips(
+      symbol: sym,
+      side: side,
+      entry: entry,
+      exit: exit,
+    );
   }
 
   String get formattedPips {
-    final pips = pipsGained;
-    if (pips == null) return '';
-    final upper = sym.toUpperCase();
-    final unit = (upper.contains('BTC') ||
-            upper.contains('ETH') ||
-            upper.contains('US30') ||
-            upper.contains('NAS') ||
-            upper.contains('SPX'))
-        ? 'pts'
-        : 'pips';
-    final prefix = pips > 0 ? '+' : '';
-    return '$prefix${pips.toStringAsFixed(1)} $unit';
+    return PnlCalculator.formatPips(
+      symbol: sym,
+      side: side,
+      entry: entry,
+      exit: exit,
+    );
   }
 
   Map<String, dynamic> toMap() {
@@ -151,6 +139,7 @@ class Trade {
       'pl': pl,
       'why': why,
       'note': note,
+      'tags': tags,
       'image_path': imagePath,
       'image_path_after': imagePathAfter,
       'account_id': accountId ?? 'acc_real',
@@ -173,6 +162,7 @@ class Trade {
       pl: (map['pl'] as num).toDouble(),
       why: map['why'] as String?,
       note: map['note'] as String?,
+      tags: map['tags'] as String?,
       imagePath: map['image_path'] as String?,
       imagePathAfter: map['image_path_after'] as String?,
       accountId: map['account_id'] as String? ?? 'acc_real',
@@ -184,16 +174,17 @@ class Trade {
     DateTime? date,
     String? sym,
     TradeSide? side,
-    double? entry,
-    double? exit,
-    double? sl,
-    double? tp,
-    double? lot,
+    Object? entry = _sentinel,
+    Object? exit = _sentinel,
+    Object? sl = _sentinel,
+    Object? tp = _sentinel,
+    Object? lot = _sentinel,
     double? pl,
-    String? why,
-    String? note,
-    String? imagePath,
-    String? imagePathAfter,
+    Object? why = _sentinel,
+    Object? note = _sentinel,
+    Object? tags = _sentinel,
+    Object? imagePath = _sentinel,
+    Object? imagePathAfter = _sentinel,
     String? accountId,
   }) {
     return Trade(
@@ -201,16 +192,17 @@ class Trade {
       date: date ?? this.date,
       sym: sym ?? this.sym,
       side: side ?? this.side,
-      entry: entry ?? this.entry,
-      exit: exit ?? this.exit,
-      sl: sl ?? this.sl,
-      tp: tp ?? this.tp,
-      lot: lot ?? this.lot,
+      entry: identical(entry, _sentinel) ? this.entry : entry as double?,
+      exit: identical(exit, _sentinel) ? this.exit : exit as double?,
+      sl: identical(sl, _sentinel) ? this.sl : sl as double?,
+      tp: identical(tp, _sentinel) ? this.tp : tp as double?,
+      lot: identical(lot, _sentinel) ? this.lot : lot as double?,
       pl: pl ?? this.pl,
-      why: why ?? this.why,
-      note: note ?? this.note,
-      imagePath: imagePath ?? this.imagePath,
-      imagePathAfter: imagePathAfter ?? this.imagePathAfter,
+      why: identical(why, _sentinel) ? this.why : why as String?,
+      note: identical(note, _sentinel) ? this.note : note as String?,
+      tags: identical(tags, _sentinel) ? this.tags : tags as String?,
+      imagePath: identical(imagePath, _sentinel) ? this.imagePath : imagePath as String?,
+      imagePathAfter: identical(imagePathAfter, _sentinel) ? this.imagePathAfter : imagePathAfter as String?,
       accountId: accountId ?? this.accountId,
     );
   }

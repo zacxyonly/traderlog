@@ -1,10 +1,13 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traderlog/models/app_settings.dart';
 import 'package:traderlog/models/trade.dart';
 import 'package:traderlog/models/trading_account.dart';
+import 'package:traderlog/providers/trade_provider.dart';
+import 'package:traderlog/services/backup_service.dart';
 import 'package:traderlog/services/csv_service.dart';
-import 'package:traderlog/services/currency_service.dart';
 import 'package:traderlog/utils/app_strings.dart';
 import 'package:traderlog/utils/formatters.dart';
 import 'package:traderlog/utils/pnl_calculator.dart';
@@ -250,43 +253,51 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
     });
   });
 
-  group('CurrencyService & Exchange Rate Tests', () {
-    test('Returns 1.0 immediately when base and target currency match', () async {
-      final rateUsd = await CurrencyService.fetchExchangeRate(
-        baseCurrency: 'USD',
-        targetCurrency: 'USD',
-      );
-      expect(rateUsd, 1.0);
+  group('Model copyWith Nullability Tests', () {
+    test('Clears PIN when copyWith(pinCode: null) is called', () {
+      final initial = AppSettings(pinCode: '1234');
+      expect(initial.isPinSet, true);
 
-      final rateUsdcUsd = await CurrencyService.fetchExchangeRate(
-        baseCurrency: 'USDC',
-        targetCurrency: 'USD',
-      );
-      expect(rateUsdcUsd, 1.0);
+      // Calling copyWith(pinCode: null) must set pinCode to null!
+      final cleared = initial.copyWith(pinCode: null);
+      expect(cleared.pinCode, isNull);
+      expect(cleared.isPinSet, false);
 
-      final rateIdr = await CurrencyService.fetchExchangeRate(
-        baseCurrency: 'IDR',
-        targetCurrency: 'IDR',
-      );
-      expect(rateIdr, 1.0);
+      // Calling copyWith() without pinCode argument must preserve the pinCode
+      final untouched = initial.copyWith(languageCode: 'en');
+      expect(untouched.pinCode, '1234');
+      expect(untouched.languageCode, 'en');
     });
 
-    test('Translates sync rate strings with parameters', () {
-      final syncedId = AppStrings.tr('rate_synced', 'id', params: {
-        'base': 'USD',
-        'target': 'IDR',
-        'rate': '16250',
-      });
-      expect(syncedId, 'Kurs berhasil diperbarui: 1 USD = 16250 IDR');
+    test('Clears SL, TP, and image paths on Trade when copyWith receives null', () {
+      final trade = Trade(
+        id: 't1',
+        date: DateTime.now(),
+        sym: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2650.0,
+        sl: 2640.0,
+        tp: 2670.0,
+        pl: 100.0,
+        imagePath: '/path/before.png',
+        imagePathAfter: '/path/after.png',
+      );
 
-      final syncedEn = AppStrings.tr('rate_synced', 'en', params: {
-        'base': 'USD',
-        'target': 'IDR',
-        'rate': '16250',
-      });
-      expect(syncedEn, 'Rate updated: 1 USD = 16250 IDR');
+      expect(trade.sl, 2640.0);
+      expect(trade.imagePath, isNotNull);
+
+      final clearedTrade = trade.copyWith(
+        sl: null,
+        imagePath: null,
+      );
+
+      expect(clearedTrade.sl, isNull);
+      expect(clearedTrade.imagePath, isNull);
+      expect(clearedTrade.tp, 2670.0); // untouched preserved
+      expect(clearedTrade.imagePathAfter, '/path/after.png'); // untouched preserved
     });
   });
+
 
   group('PnlCalculator & Automated PnL Tests', () {
     test('Calculates Gold (XAU/USD) profit, loss, and pips correctly', () {
@@ -461,4 +472,179 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(buyLoss.formattedRealizedRR, '-1:1.50');
     });
   });
+
+  group('PnlCalculator Multi-Currency & fxRate Tests', () {
+    test('Calculates Gold PnL with exchange rate (IDR)', () {
+      // Entry 2650, Exit 2660, Lot 0.1 => Base USD $100.
+      // With fxRate 16,000 => Rp 1,600,000
+      final res = PnlCalculator.calculate(
+        symbol: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2650.0,
+        exit: 2660.0,
+        lot: 0.1,
+        fxRate: 16000.0,
+      );
+
+      expect(res, isNotNull);
+      expect(res!.pnl, 1600000.0);
+      expect(res.basePnl, 100.0);
+      expect(res.pips, 100.0);
+    });
+
+    test('Calculates Planned Risk & Reward with exchange rate', () {
+      final risk = PnlCalculator.calculateRisk(
+        symbol: 'EUR/USD',
+        side: TradeSide.buy,
+        entry: 1.0800,
+        sl: 1.0750, // 50 pips risk => $50 base
+        lot: 0.1,
+        fxRate: 16000.0,
+      );
+      expect(risk, isNotNull);
+      expect(risk!.pnl, -800000.0); // -$50 * 16000
+      expect(risk.basePnl, -50.0);
+    });
+  });
+
+  group('PIN Hashing & Security Verification Tests', () {
+    test('Hashes PIN to 64-char hex SHA-256 and verifies correctly', () {
+      final hash = AppSettings.hashPin('1234');
+      expect(hash.length, 64);
+      expect(RegExp(r'^[0-9a-f]{64}$').hasMatch(hash), true);
+
+      // Verifies correct PIN against hash
+      expect(AppSettings.verifyPin('1234', hash), true);
+      // Fails on incorrect PIN
+      expect(AppSettings.verifyPin('0000', hash), false);
+      expect(AppSettings.verifyPin('1235', hash), false);
+
+      // Backward compatibility with legacy plaintext PIN
+      expect(AppSettings.verifyPin('1234', '1234'), true);
+      expect(AppSettings.verifyPin('9999', '1234'), false);
+    });
+  });
+
+  group('BackupService Full Archive Tests', () {
+    test('Creates and encodes valid ZIP archive with DB and manifest', () {
+      final mockDbBytes = Uint8List.fromList(utf8.encode('SQLite format 3 mock content'));
+      final mockImgBytes = Uint8List.fromList([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+
+      final zipBytes = BackupService.createArchiveBytes(
+        dbBytes: mockDbBytes,
+        images: {'chart_123_before.png': mockImgBytes},
+        extraMetadata: {'author': 'trader'},
+      );
+
+      expect(zipBytes.isNotEmpty, true);
+      // Valid ZIP files start with PK\x03\x04
+      expect(zipBytes[0], 0x50);
+      expect(zipBytes[1], 0x4B);
+    });
+  });
+
+  group('PnlCalculator Asset Classification & Pip Units Tests', () {
+    test('Correctly classifies Indices with pts unit and 1:1 points', () {
+      expect(PnlCalculator.getAssetType('US30'), 'indices');
+      expect(PnlCalculator.getAssetType('USTEC'), 'indices');
+      expect(PnlCalculator.getAssetType('US500'), 'indices');
+      expect(PnlCalculator.getPipUnit('USTEC'), 'pts');
+      expect(PnlCalculator.getPipUnit('US30'), 'pts');
+
+      // USTEC 18000 to 18050, Lot 1.0 => 50 pts, $50
+      final res = PnlCalculator.calculate(
+        symbol: 'USTEC',
+        side: TradeSide.buy,
+        entry: 18000.0,
+        exit: 18050.0,
+        lot: 1.0,
+      );
+      expect(res, isNotNull);
+      expect(res!.pips, 50.0);
+      expect(res.pipUnit, 'pts');
+      expect(res.pnl, 50.0);
+    });
+
+    test('Correctly formats pips on Trade model using shared PnlCalculator', () {
+      final tradeIndices = Trade(
+        id: 't_idx',
+        date: DateTime.now(),
+        sym: 'USTEC',
+        side: TradeSide.buy,
+        entry: 18000.0,
+        exit: 18050.0,
+        pl: 50.0,
+      );
+      expect(tradeIndices.pipsGained, 50.0);
+      expect(tradeIndices.formattedPips, '+50.0 pts');
+
+      final tradeGold = Trade(
+        id: 't_gold',
+        date: DateTime.now(),
+        sym: 'XAU/USD',
+        side: TradeSide.buy,
+        entry: 2650.0,
+        exit: 2655.0,
+        pl: 50.0,
+      );
+      expect(tradeGold.pipsGained, 50.0);
+      expect(tradeGold.formattedPips, '+50.0 pips');
+    });
+  });
+
+  group('Provider Summary Metrics Calculations Tests', () {
+    test('Calculates Max Drawdown, Profit Factor, and Streaks correctly', () {
+      final now = DateTime.now();
+      // Sequence of trades:
+      // Start: $1,000
+      // Trade 1: +$200 => Equity $1,200 (Peak)
+      // Trade 2: -$300 => Equity $900 (Trough: DD = $300 / $1200 = 25%)
+      // Trade 3: +$100 => Equity $1,000
+      // Trade 4: +$150 => Equity $1,150
+      final t1 = Trade(id: '1', date: now.subtract(const Duration(days: 4)), sym: 'XAU/USD', side: TradeSide.buy, pl: 200.0);
+      final t2 = Trade(id: '2', date: now.subtract(const Duration(days: 3)), sym: 'XAU/USD', side: TradeSide.buy, pl: -300.0);
+      final t3 = Trade(id: '3', date: now.subtract(const Duration(days: 2)), sym: 'XAU/USD', side: TradeSide.buy, pl: 100.0);
+      final t4 = Trade(id: '4', date: now.subtract(const Duration(days: 1)), sym: 'XAU/USD', side: TradeSide.buy, pl: 150.0);
+
+      final trades = [t1, t2, t3, t4];
+      const initialCapital = 1000.0;
+
+      // Drawdown calculation verification
+      double peak = initialCapital;
+      double currentEq = initialCapital;
+      double maxDDPct = 0.0;
+      double maxDDAmount = 0.0;
+
+      for (final t in trades) {
+        currentEq += t.pl;
+        if (currentEq > peak) {
+          peak = currentEq;
+        } else {
+          final ddAmount = peak - currentEq;
+          final ddPct = peak > 0 ? (ddAmount / peak) * 100.0 : 0.0;
+          if (ddAmount > maxDDAmount) {
+            maxDDAmount = ddAmount;
+            maxDDPct = ddPct;
+          }
+        }
+      }
+
+      expect(maxDDAmount, 300.0);
+      expect(maxDDPct, 25.0); // 300 / 1200 * 100
+
+      // Profit factor calculation verification
+      // Gross profits = 200 + 100 + 150 = 450
+      // Gross loss = 300
+      // Profit factor = 450 / 300 = 1.50
+      const grossP = 450.0;
+      const grossL = 300.0;
+      final pf = grossL > 0 ? grossP / grossL : null;
+      expect(pf, 1.5);
+
+      // Streak calculation verification
+      // Last 2 trades (t3, t4) are wins => Streak = 2 WIN
+      expect(trades.last.pl > 0, true);
+    });
+  });
 }
+

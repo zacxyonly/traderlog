@@ -9,6 +9,8 @@ import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 import '../utils/pnl_calculator.dart';
+import '../widgets/trade_tag_selector.dart';
+import '../widgets/trade_image_slots.dart';
 
 class TradeFormSheet extends StatefulWidget {
   final Trade? tradeToEdit;
@@ -61,31 +63,11 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
 
   String? _imagePath;
   String? _imagePathAfter;
+  final List<String> _newlyPickedFiles = [];
+  bool _isSaved = false;
   final ImagePicker _picker = ImagePicker();
 
-  static const List<String> _setupTags = [
-    'BOS',
-    'CHOCH',
-    'FVG',
-    'Liquidity',
-    'Supply/Demand',
-    'Trendline',
-    'S&R',
-    'News',
-    'Fibonacci',
-  ];
-
-  static const List<String> _emotionTags = [
-    'Disiplin',
-    'FOMO',
-    'Revenge Trade',
-    'Overlot',
-    'Sabar',
-    'Greedy',
-    'Hesitant',
-    'Plan Executed',
-    'Early Exit',
-  ];
+  final Set<String> _selectedTags = {};
 
   @override
   void initState() {
@@ -118,6 +100,24 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       if (t.note != null) _noteController.text = t.note!;
       _imagePath = t.imagePath;
       _imagePathAfter = t.imagePathAfter;
+
+      if (t.tags != null && t.tags!.isNotEmpty) {
+        _selectedTags.addAll(
+          t.tags!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty),
+        );
+      } else {
+        // Compatibility for legacy trades
+        if (t.why != null) {
+          for (final tag in TradeTagSelector.setupTags) {
+            if (t.why!.contains(tag)) _selectedTags.add(tag);
+          }
+        }
+        if (t.note != null) {
+          for (final tag in TradeTagSelector.emotionTags) {
+            if (t.note!.contains(tag)) _selectedTags.add(tag);
+          }
+        }
+      }
     } else if (init != null) {
       if (init.entry != null) _entryController.text = init.entry.toString();
       if (init.sl != null) _slController.text = init.sl.toString();
@@ -125,6 +125,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       if (init.lot != null) _lotController.text = init.lot.toString();
       if (init.why != null) _whyController.text = init.why!;
     }
+
 
     _entryController.addListener(_onPriceOrLotChanged);
     _exitController.addListener(_onPriceOrLotChanged);
@@ -139,6 +140,12 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
 
   @override
   void dispose() {
+    if (!_isSaved) {
+      for (final p in _newlyPickedFiles) {
+        _safeDeleteFile(p);
+      }
+    }
+
     _entryController.removeListener(_onPriceOrLotChanged);
     _exitController.removeListener(_onPriceOrLotChanged);
     _lotController.removeListener(_onPriceOrLotChanged);
@@ -177,6 +184,12 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     final sl = double.tryParse(_slController.text.trim());
     final tp = double.tryParse(_tpController.text.trim());
 
+    final provider = context.read<TradeProvider>();
+    final accCurr = provider.activeAccount.currency.toUpperCase();
+    final double fxRate = (accCurr == 'IDR')
+        ? provider.settings.usdToIdrRate
+        : 1.0;
+
     if (entry != null && exit != null && lot != null && lot > 0) {
       final calc = PnlCalculator.calculate(
         symbol: _selectedSymbol,
@@ -184,11 +197,16 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
         entry: entry,
         exit: exit,
         lot: lot,
+        fxRate: fxRate,
       );
       _lastCalculatedPnl = calc;
       if (calc != null && (!isInitial || widget.tradeToEdit == null || forceAutoPl)) {
         if (!_isUserEditedPl || forceAutoPl) {
-          _plController.text = calc.pnl.toStringAsFixed(2);
+          if (accCurr == 'IDR' || (calc.pnl.abs() >= 100 && calc.pnl == calc.pnl.roundToDouble())) {
+            _plController.text = calc.pnl.toStringAsFixed(0);
+          } else {
+            _plController.text = calc.pnl.toStringAsFixed(2);
+          }
           _isUserEditedPl = false;
         }
       }
@@ -203,6 +221,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
         entry: entry,
         sl: sl,
         lot: lot,
+        fxRate: fxRate,
       );
     } else {
       _plannedRisk = null;
@@ -215,6 +234,7 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
         entry: entry,
         tp: tp,
         lot: lot,
+        fxRate: fxRate,
       );
     } else {
       _plannedReward = null;
@@ -247,41 +267,16 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
     }
   }
 
-  void _toggleSetupTag(String tag) {
-    final current = _whyController.text;
-    if (current.contains(tag)) {
-      final updated = current
-          .replaceAll(tag, '')
-          .replaceAll(', ,', ',')
-          .replaceAll(RegExp(r'^[,\s]+|[,\s]+$'), '');
-      _whyController.text = updated;
-    } else {
-      if (current.trim().isEmpty) {
-        _whyController.text = tag;
+  void _toggleTag(String tag) {
+    setState(() {
+      if (_selectedTags.contains(tag)) {
+        _selectedTags.remove(tag);
       } else {
-        _whyController.text = '${current.trim()}, $tag';
+        _selectedTags.add(tag);
       }
-    }
-    setState(() {});
+    });
   }
 
-  void _toggleEmotionTag(String tag) {
-    final current = _noteController.text;
-    if (current.contains(tag)) {
-      final updated = current
-          .replaceAll(tag, '')
-          .replaceAll(', ,', ',')
-          .replaceAll(RegExp(r'^[,\s]+|[,\s]+$'), '');
-      _noteController.text = updated;
-    } else {
-      if (current.trim().isEmpty) {
-        _noteController.text = tag;
-      } else {
-        _noteController.text = '${current.trim()}, $tag';
-      }
-    }
-    setState(() {});
-  }
 
   String _calculateLiveRR() {
     final entry = double.tryParse(_entryController.text);
@@ -347,6 +342,13 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
         final ext = pickedFile.path.contains('.') ? pickedFile.path.split('.').last : 'jpg';
         final fileName = 'chart_${DateTime.now().millisecondsSinceEpoch}_${isAfter ? 'after' : 'before'}.$ext';
         final savedFile = await File(pickedFile.path).copy('${appDir.path}/$fileName');
+
+        final previousPath = isAfter ? _imagePathAfter : _imagePath;
+        if (previousPath != null && _newlyPickedFiles.contains(previousPath)) {
+          _safeDeleteFile(previousPath);
+          _newlyPickedFiles.remove(previousPath);
+        }
+        _newlyPickedFiles.add(savedFile.path);
 
         setState(() {
           if (isAfter) {
@@ -438,10 +440,12 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       pl: pl,
       why: why.isNotEmpty ? why : null,
       note: note.isNotEmpty ? note : null,
+      tags: _selectedTags.isNotEmpty ? _selectedTags.join(', ') : null,
       imagePath: _imagePath,
       imagePathAfter: _imagePathAfter,
       accountId: widget.tradeToEdit?.accountId ?? provider.settings.activeAccountId,
     );
+
 
     if (widget.tradeToEdit != null) {
       if (widget.tradeToEdit!.imagePath != null &&
@@ -461,6 +465,13 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppStrings.tr('trade_saved', lang))),
       );
+    }
+
+    _isSaved = true;
+    for (final p in _newlyPickedFiles) {
+      if (p != _imagePath && p != _imagePathAfter) {
+        _safeDeleteFile(p);
+      }
     }
 
     Navigator.of(context).pop();
@@ -1078,41 +1089,20 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Alasan ("Why") + Quick Setup Chips
-              _buildLabel(AppStrings.tr('why_label', lang), mutedColor),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _setupTags.map((tag) {
-                    final isSelected = _whyController.text.contains(tag);
-                    return GestureDetector(
-                      onTap: () => _toggleSetupTag(tag),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 140),
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primary.withOpacity(0.18) : softColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : borderColor,
-                            width: isSelected ? 1.3 : 1.0,
-                          ),
-                        ),
-                        child: Text(
-                          tag,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected ? AppColors.primary : mutedColor,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+              // Setup & Emotion Tags
+              TradeTagSelector(
+                selectedTags: _selectedTags,
+                onTagToggled: _toggleTag,
+                lang: lang,
+                softColor: softColor,
+                borderColor: borderColor,
+                textColor: textColor,
+                mutedColor: mutedColor,
               ),
+              const SizedBox(height: 14),
+
+              // Alasan ("Why") Free-form note
+              _buildLabel(AppStrings.tr('why_label', lang), mutedColor),
               _buildTextField(
                 controller: _whyController,
                 hint: AppStrings.tr('why_hint', lang),
@@ -1123,44 +1113,8 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Catatan ("Note") + Quick Emotion Chips
+              // Catatan ("Note") Free-form note
               _buildLabel(AppStrings.tr('note_label', lang), mutedColor),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _emotionTags.map((tag) {
-                    final isSelected = _noteController.text.contains(tag);
-                    final isNegative = tag == 'FOMO' || tag == 'Revenge Trade' || tag == 'Overlot' || tag == 'Greedy' || tag == 'Hesitant';
-                    final highlightColor = isNegative ? AppColors.lose : AppColors.primary;
-
-                    return GestureDetector(
-                      onTap: () => _toggleEmotionTag(tag),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 140),
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: isSelected ? highlightColor.withOpacity(0.18) : softColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected ? highlightColor : borderColor,
-                            width: isSelected ? 1.3 : 1.0,
-                          ),
-                        ),
-                        child: Text(
-                          tag,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected ? highlightColor : mutedColor,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
               _buildTextField(
                 controller: _noteController,
                 hint: AppStrings.tr('note_hint', lang),
@@ -1171,29 +1125,20 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Dua Slot Gambar: Slot 1 (Sebelum Entry / Setup) & Slot 2 (Sesudah Selesai / Eksekusi)
-              _buildImageSlot(
-                title: AppStrings.tr('slot_before', lang),
-                imagePath: _imagePath,
-                onPick: (src) => _pickImage(src, isAfter: false),
-                onClear: () => setState(() => _imagePath = null),
-                lang: lang,
-                softColor: softColor,
-                borderColor: borderColor,
-                mutedColor: mutedColor,
-              ),
-              const SizedBox(height: 14),
-              _buildImageSlot(
-                title: AppStrings.tr('slot_after', lang),
-                imagePath: _imagePathAfter,
-                onPick: (src) => _pickImage(src, isAfter: true),
-                onClear: () => setState(() => _imagePathAfter = null),
+              // Dual Image Slots: Slot 1 (Before) & Slot 2 (After)
+              TradeImageSlots(
+                imagePathBefore: _imagePath,
+                imagePathAfter: _imagePathAfter,
+                onPickImage: (src, isAfter) => _pickImage(src, isAfter: isAfter),
+                onClearBefore: () => setState(() => _imagePath = null),
+                onClearAfter: () => setState(() => _imagePathAfter = null),
                 lang: lang,
                 softColor: softColor,
                 borderColor: borderColor,
                 mutedColor: mutedColor,
               ),
               const SizedBox(height: 18),
+
 
               // Primary Save Button
               SizedBox(
@@ -1311,89 +1256,5 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       ),
     );
   }
-
-  Widget _buildImageSlot({
-    required String title,
-    required String? imagePath,
-    required ValueChanged<ImageSource> onPick,
-    required VoidCallback onClear,
-    required String lang,
-    required Color softColor,
-    required Color borderColor,
-    required Color mutedColor,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildLabel(title, mutedColor),
-        if (imagePath != null && imagePath.isNotEmpty) ...[
-          Stack(
-            alignment: Alignment.topRight,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: Container(
-                  height: 140,
-                  width: double.infinity,
-                  color: Colors.black12,
-                  child: Image.file(
-                    File(imagePath),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Colors.black87,
-                  child: Icon(Icons.close, size: 16, color: Colors.white),
-                ),
-                onPressed: onClear,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.photo_library_outlined, size: 16),
-                label: Text(
-                  AppStrings.tr('from_gallery', lang),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 9),
-                  side: BorderSide(color: borderColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                ),
-                onPressed: () => onPick(ImageSource.gallery),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                label: Text(
-                  AppStrings.tr('open_camera', lang),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 9),
-                  side: BorderSide(color: borderColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                ),
-                onPressed: () => onPick(ImageSource.camera),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
 }
+

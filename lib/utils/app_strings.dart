@@ -220,6 +220,14 @@ class AppStrings {
       'confirm_reset_sub': 'Tindakan ini akan menghapus seluruh data jurnal pada akun aktif saat ini. Pastikan Anda sudah mengekspor ke CSV jika memerlukan cadangan.',
       'no_trades_export': 'Belum ada trade untuk diekspor',
       'trades_exported': 'trade berhasil disiapkan untuk diekspor',
+      'export_zip': 'Cadangan Lengkap (.zip)',
+      'export_zip_sub': 'Simpan database SQLite beserta seluruh screenshot foto chart',
+      'restore_zip': 'Pulihkan Cadangan (.zip)',
+      'restore_zip_sub': 'Pulihkan database dan foto dari file arsip .zip',
+      'restore_confirm_title': 'Konfirmasi Pemulihan Cadangan',
+      'restore_confirm_body': 'Memulihkan cadangan akan menggantikan data trade saat ini dengan isi arsip. Lanjutkan?',
+      'restore_success': 'Cadangan berhasil dipulihkan ({count} foto dipulihkan).',
+      'restore_failed': 'Gagal memulihkan cadangan: {error}',
     },
     'en': {
       // Navigation
@@ -441,6 +449,14 @@ class AppStrings {
       'confirm_reset_sub': 'This will permanently remove all trade records for the active account. Ensure you export a CSV backup beforehand if needed.',
       'no_trades_export': 'No trades to export',
       'trades_exported': 'trades prepared for export',
+      'export_zip': 'Full Backup (.zip)',
+      'export_zip_sub': 'Export SQLite database and all chart screenshots',
+      'restore_zip': 'Restore Backup (.zip)',
+      'restore_zip_sub': 'Restore database and screenshots from a .zip file',
+      'restore_confirm_title': 'Confirm Backup Restore',
+      'restore_confirm_body': 'Restoring will replace current trade records with the archive contents. Continue?',
+      'restore_success': 'Backup restored successfully ({count} photos restored).',
+      'restore_failed': 'Failed to restore backup: {error}',
     },
   };
 
