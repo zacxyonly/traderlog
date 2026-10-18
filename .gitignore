@@ -44,6 +44,7 @@ app.*.map.json
 
 # Release signing (never commit)
 android/key.properties
+file.txt
 *.jks
 *.keystore
 *.p12
