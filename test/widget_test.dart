@@ -504,8 +504,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
         fxRate: 16000.0,
       );
       expect(risk, isNotNull);
-      expect(risk!.pnl, -800000.0); // -$50 * 16000
-      expect(risk.basePnl, -50.0);
+      expect(risk!.pnl, closeTo(-800000.0, 0.01)); // -$50 * 16000
+      expect(risk.basePnl!, closeTo(-50.0, 0.01));
     });
   });
 

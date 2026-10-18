@@ -70,17 +70,17 @@ class PnlCalculator {
     switch (assetType) {
       case 'gold':
         // Gold: 1 pip = 0.10 price movement ($1 move = 10 pips)
-        return priceDiff * 10.0;
+        return double.parse((priceDiff * 10.0).toStringAsFixed(1));
       case 'indices':
       case 'crypto':
         // Indices and Crypto move in whole index / dollar points
-        return priceDiff;
+        return double.parse(priceDiff.toStringAsFixed(2));
       case 'forex':
       default:
         final sym = symbol.toUpperCase();
         final isJpy = sym.contains('JPY');
         final pipSize = isJpy ? 0.01 : 0.0001;
-        return priceDiff / pipSize;
+        return double.parse((priceDiff / pipSize).toStringAsFixed(1));
     }
   }
 
