@@ -86,9 +86,9 @@ class BackupService {
       final t = trades[i];
       final map = t.toMap();
       map['image_path'] =
-          _addImage(archive, t.imagePath, '${_imagesDir}${i}_before');
+          _addImage(archive, t.imagePath, '$_imagesDir${i}_before');
       map['image_path_after'] =
-          _addImage(archive, t.imagePathAfter, '${_imagesDir}${i}_after');
+          _addImage(archive, t.imagePathAfter, '$_imagesDir${i}_after');
       tradeMaps.add(map);
     }
 

@@ -1,8 +1,6 @@
 import 'package:intl/intl.dart';
 
 class Formatters {
-  static final DateFormat _dateTimeFormat = DateFormat('dd MMM yyyy, HH:mm', 'id_ID');
-  static final DateFormat _monthYearFormat = DateFormat('MMMM yyyy', 'id_ID');
   static final DateFormat _dateFormat = DateFormat('yyyy-MM-dd');
 
   /// Returns the currency symbol for a given currency code

@@ -321,7 +321,7 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(sellRes.formattedPips, '-50.0 pips');
     });
 
-    test('USD-quoted pairs (EUR/USD) use $10 per pip per lot', () {
+    test('USD-quoted pairs (EUR/USD) use \$10 per pip per lot', () {
       // EUR/USD BUY: Entry 1.0800, Exit 1.0850 (50 pips), Lot 0.1 => $50
       final fxRes = PnlCalculator.calculate(
         symbol: 'EUR/USD',
@@ -335,7 +335,7 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(fxRes.pnl!.toStringAsFixed(1), '50.0');
     });
 
-    test('USD/JPY is NOT $10 per pip - converted with the exit price', () {
+    test('USD/JPY is NOT \$10 per pip - converted with the exit price', () {
       // SELL 0.1 lot, 155.00 -> 154.50 = +50 pips.
       // 0.5 JPY * 100,000 * 0.1 = 5,000 JPY; / 154.50 = $32.36 (not $50).
       final jpyRes = PnlCalculator.calculate(
