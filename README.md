@@ -27,9 +27,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/zacxyonly/traderlog/releases/latest">
-    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.0.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
-  </a>
   <a href="https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml">
     <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-CI_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
   </a>
@@ -53,7 +50,7 @@ Built with **Flutter** and local **SQLite (SQFlite)**, TraderLog guarantees 100%
 
 ---
 
-## 🌟 Core Features (v1.0.0)
+## 🌟 Core Features
 
 ### 1. 📊 Analytics & Performance Evaluation (Summary Tab)
 * **📈 Interactive Equity Curve**: Dynamic capital growth visualization featuring baseline initial capital, all-time peak marker, real-time touch-scrub cursor, and per-trade PnL tooltips.
@@ -158,7 +155,7 @@ traderlog/
 │   └── widget_test.dart           # Integration and unit tests for models, math & CSV
 ├── tools/
 │   └── generate_keystore.sh       # Release keystore generation script for local & CI signing
-├── pubspec.yaml                   # Flutter package manifest (v1.0.0+1)
+├── pubspec.yaml                   # Flutter package manifest
 ├── LICENSE                        # MIT Open Source License
 ├── README.md                      # English documentation (default)
 └── README_ID.md                   # Indonesian documentation

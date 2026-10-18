@@ -27,9 +27,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/zacxyonly/traderlog/releases/latest">
-    <img src="https://img.shields.io/badge/📲_Download_Release_APK-v1.0.0-10B981?style=for-the-badge&labelColor=121B2B" alt="Download APK" />
-  </a>
   <a href="https://github.com/zacxyonly/traderlog/actions/workflows/build_apk.yml">
     <img src="https://img.shields.io/badge/⚙️_GitHub_Actions-CI_Build-6366F1?style=for-the-badge&labelColor=121B2B&logo=githubactions&logoColor=white" alt="Actions CI" />
   </a>
@@ -53,7 +50,7 @@ Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQ
 
 ---
 
-## 🌟 Fitur Unggulan (v1.0.0)
+## 🌟 Fitur Unggulan
 
 ### 1. 📊 Analisis & Evaluasi (Tab Ringkasan)
 * **📈 Grafik Equity Curve Interaktif**: Visualisasi garis pertumbuhan modal akumulatif yang dinamis dengan baseline modal awal, penanda titik tertinggi (*All-Time Peak*), garis *scrub* sentuh real-time, dan tooltip info PnL per trade.
@@ -160,7 +157,7 @@ traderlog/
 │   └── widget_test.dart           # Unit test model, kalkulasi matematis, CSV & lokalisasi
 ├── tools/
 │   └── generate_keystore.sh       # Skrip pembuat keystore rilis untuk signing lokal & CI
-├── pubspec.yaml                   # Manifest paket dan dependensi Flutter (v1.0.0+1)
+├── pubspec.yaml                   # Manifest paket dan dependensi Flutter
 ├── LICENSE                        # Lisensi open-source MIT
 ├── README.md                      # Dokumentasi Bahasa Inggris (Utama)
 └── README_ID.md                   # Dokumentasi Bahasa Indonesia
