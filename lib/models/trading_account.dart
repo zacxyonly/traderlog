@@ -7,12 +7,24 @@ class TradingAccount {
   final double initialCapital;
   final String currency;
 
+  /// Batas risiko per trade dalam persen (1.0 = 1%). null = tidak diatur.
+  final double? maxRiskPercent;
+
+  /// Batas kerugian harian dalam persen saldo awal hari. Khusus prop firm.
+  final double? dailyLossLimitPercent;
+
+  /// Batas drawdown total dalam persen dari modal awal. Khusus prop firm.
+  final double? maxDrawdownPercent;
+
   const TradingAccount({
     required this.id,
     required this.name,
     this.type = 'real',
     this.initialCapital = 1000.0,
     this.currency = 'USD',
+    this.maxRiskPercent,
+    this.dailyLossLimitPercent,
+    this.maxDrawdownPercent,
   });
 
   String get typeLabel {
@@ -34,6 +46,9 @@ class TradingAccount {
       'type': type,
       'initialCapital': initialCapital,
       'currency': currency,
+      'maxRiskPercent': maxRiskPercent,
+      'dailyLossLimitPercent': dailyLossLimitPercent,
+      'maxDrawdownPercent': maxDrawdownPercent,
     };
   }
 
@@ -44,6 +59,9 @@ class TradingAccount {
       type: map['type'] as String? ?? 'real',
       initialCapital: (map['initialCapital'] as num?)?.toDouble() ?? 1000.0,
       currency: map['currency'] as String? ?? 'USD',
+      maxRiskPercent: (map['maxRiskPercent'] as num?)?.toDouble(),
+      dailyLossLimitPercent: (map['dailyLossLimitPercent'] as num?)?.toDouble(),
+      maxDrawdownPercent: (map['maxDrawdownPercent'] as num?)?.toDouble(),
     );
   }
 
@@ -53,6 +71,9 @@ class TradingAccount {
     String? type,
     double? initialCapital,
     String? currency,
+    double? maxRiskPercent,
+    double? dailyLossLimitPercent,
+    double? maxDrawdownPercent,
   }) {
     return TradingAccount(
       id: id ?? this.id,
@@ -60,6 +81,28 @@ class TradingAccount {
       type: type ?? this.type,
       initialCapital: initialCapital ?? this.initialCapital,
       currency: currency ?? this.currency,
+      maxRiskPercent: maxRiskPercent ?? this.maxRiskPercent,
+      dailyLossLimitPercent:
+          dailyLossLimitPercent ?? this.dailyLossLimitPercent,
+      maxDrawdownPercent: maxDrawdownPercent ?? this.maxDrawdownPercent,
+    );
+  }
+
+  /// Menetapkan seluruh aturan risiko sekaligus. Nilai null berarti dihapus.
+  TradingAccount withRiskRules({
+    double? maxRiskPercent,
+    double? dailyLossLimitPercent,
+    double? maxDrawdownPercent,
+  }) {
+    return TradingAccount(
+      id: id,
+      name: name,
+      type: type,
+      initialCapital: initialCapital,
+      currency: currency,
+      maxRiskPercent: maxRiskPercent,
+      dailyLossLimitPercent: dailyLossLimitPercent,
+      maxDrawdownPercent: maxDrawdownPercent,
     );
   }
 

@@ -12,6 +12,7 @@ import '../services/backup_service.dart';
 import '../services/csv_service.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
+import '../widgets/about_section.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -33,6 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     4: 'cat_symbols',
     5: 'cat_data',
     6: 'cat_prefs',
+    7: 'cat_about',
   };
 
   static const List<Map<String, String>> _accountCurrencies = [
@@ -1639,6 +1641,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             // Category 6: Preferensi
+            if (_selectedCategoryIndex == 7) ...[
+              const AboutSection(),
+            ],
+
             if (_selectedCategoryIndex == 6) ...[
               _buildCard(cardColor, borderColor, isDark, [
                 _prefSwitch(
@@ -1947,6 +1953,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: AppStrings.tr('cat_data', lang),
           subtitle: AppStrings.tr('menu_data_sub', lang),
           index: 5,
+        ),
+      ]),
+
+      _menuGroup(AppStrings.tr('group_info', lang), [
+        _menuTile(
+          icon: Icons.info_outline_rounded,
+          color: AppColors.primary,
+          title: AppStrings.tr('cat_about', lang),
+          subtitle: AppStrings.tr('menu_about_sub', lang),
+          index: 7,
         ),
       ]),
     ];

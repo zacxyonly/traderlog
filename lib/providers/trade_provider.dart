@@ -500,6 +500,21 @@ class TradeProvider extends ChangeNotifier {
     await updateSettings(_settings.copyWith(symbols: updated));
   }
 
+  /// Saves the risk rules of the active account. Passing null clears a rule.
+  Future<void> updateRiskRules({
+    double? maxRiskPercent,
+    double? dailyLossLimitPercent,
+    double? maxDrawdownPercent,
+  }) async {
+    await updateAccount(
+      activeAccount.withRiskRules(
+        maxRiskPercent: maxRiskPercent,
+        dailyLossLimitPercent: dailyLossLimitPercent,
+        maxDrawdownPercent: maxDrawdownPercent,
+      ),
+    );
+  }
+
   // --- Real-Time Financial Calculations ---
   double get currentEquity {
     double eq = activeAccount.initialCapital;

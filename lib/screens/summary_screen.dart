@@ -8,6 +8,8 @@ import '../utils/formatters.dart';
 import '../widgets/hero_summary_card.dart';
 import '../widgets/interactive_equity_curve.dart';
 import '../widgets/pnl_calendar_heatmap.dart';
+import '../widgets/advanced_analytics_section.dart';
+import '../widgets/risk_prop_section.dart';
 import '../widgets/stat_card.dart';
 
 class SummaryScreen extends StatefulWidget {
@@ -613,6 +615,12 @@ class _SummaryScreenState extends State<SummaryScreen> {
                   );
                 }),
               ],
+
+              // Analisis lanjutan: streak, ekspektansi R, performa hari, emosi
+              AdvancedAnalyticsSection(summary: summary),
+
+              // Manajemen risiko & status prop firm (akun aktif)
+              const RiskPropSection(),
             ],
           ],
         ),

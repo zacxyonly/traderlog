@@ -9,6 +9,7 @@ import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 import '../utils/formatters.dart';
 import '../utils/pnl_calculator.dart';
+import '../utils/trade_analytics.dart';
 
 class TradeFormSheet extends StatefulWidget {
   final Trade? tradeToEdit;
@@ -480,7 +481,36 @@ class _TradeFormSheetState extends State<TradeFormSheet> {
       );
     }
 
+    _showRiskWarning(provider, trade, lang);
     Navigator.of(context).pop();
+  }
+
+  void _showRiskWarning(TradeProvider provider, Trade trade, String lang) {
+    final account = provider.activeAccount;
+    final limit = account.maxRiskPercent;
+    if (limit == null) return;
+
+    // Ganti versi lama trade ini (bila edit) dengan versi yang baru disimpan.
+    final all = [...provider.trades.where((t) => t.id != trade.id), trade];
+    final ratio = TradeAnalytics.riskFor(all, account, trade.id)?.riskRatio;
+    if (ratio == null || ratio * 100 <= limit) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.lose,
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          AppStrings.tr(
+            'risk_over_limit',
+            lang,
+            params: {
+              'pct': (ratio * 100).toStringAsFixed(2),
+              'limit': limit.toStringAsFixed(2),
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   void _deleteTrade() {
