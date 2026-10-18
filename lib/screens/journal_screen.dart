@@ -72,115 +72,92 @@ class _JournalScreenState extends State<JournalScreen> {
       monthlyTotalPL[monthKey] = (monthlyTotalPL[monthKey] ?? 0.0) + t.pl;
     }
 
-    // Flatten monthly trades into lazy list items for high-performance virtualization
-    final List<_JournalListItem> journalItems = [];
-    for (final entry in monthlyTrades.entries) {
-      final monthTitle = entry.key;
-      final tradesInMonth = entry.value;
-      final totalMonthPL = monthlyTotalPL[monthTitle] ?? 0.0;
-      journalItems.add(_MonthHeaderItem(monthTitle, totalMonthPL));
-      for (final trade in tradesInMonth) {
-        journalItems.add(_TradeCardItem(
-          trade: trade,
-          tradeIndex: tradeIndexMap[trade.id] ?? 1,
-          cumulativeEquity: tradeEquityMap[trade.id] ?? initialCapital,
-          changePercentage: tradeChangeMap[trade.id] ?? 0.0,
-        ));
-      }
-    }
-
-    final bool isEmptyAll = allTrades.isEmpty;
-    final bool isEmptyFiltered = !isEmptyAll && filteredTrades.isEmpty;
-    final int extraCount = (isEmptyAll || isEmptyFiltered) ? 1 : journalItems.length;
-    final int totalCount = 3 + extraCount;
-
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
           onRefresh: () => provider.loadData(),
           color: AppColors.primary,
-          child: ListView.builder(
+          child: ListView(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 120),
-            itemCount: totalCount,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return const HeroSummaryCard();
-              }
-              if (index == 1) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) {
-                      setState(() => _searchQuery = val);
-                    },
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: textColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: AppStrings.tr('search_hint', lang),
-                      hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: mutedColor,
-                        fontWeight: FontWeight.normal,
-                      ),
-                      prefixIcon: Icon(Icons.search, color: mutedColor, size: 20),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(Icons.clear, color: mutedColor, size: 18),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: softColor,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide:
-                            const BorderSide(color: AppColors.primary, width: 1.8),
-                      ),
-                    ),
-                  ),
-                );
-              }
-              if (index == 2) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: softColor,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildFilterButton('ALL', AppStrings.tr('filter_all', lang), cardColor, textColor, mutedColor),
-                      _buildFilterButton('WIN', AppStrings.tr('filter_win', lang), cardColor, AppColors.winText, mutedColor),
-                      _buildFilterButton('LOSE', AppStrings.tr('filter_lose', lang), cardColor, AppColors.loseText, mutedColor),
-                      _buildFilterButton('BE', AppStrings.tr('filter_be', lang), cardColor, AppColors.beText, mutedColor),
-                    ],
-                  ),
-                );
-              }
+            children: [
+              // Hero Summary Card
+              const HeroSummaryCard(),
 
-              if (isEmptyAll) {
-                return Container(
+              // Search Box
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (val) {
+                    setState(() => _searchQuery = val);
+                  },
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: AppStrings.tr('search_hint', lang),
+                    hintStyle: TextStyle(
+                      fontSize: 14,
+                      color: mutedColor,
+                      fontWeight: FontWeight.normal,
+                    ),
+                    prefixIcon: Icon(Icons.search, color: mutedColor, size: 20),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(Icons.clear, color: mutedColor, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: softColor,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide:
+                          const BorderSide(color: AppColors.primary, width: 1.8),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Segmented Filter Bar: ALL | WIN | LOSE | BE
+              Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: softColor,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    _buildFilterButton('ALL', AppStrings.tr('filter_all', lang), cardColor, textColor, mutedColor),
+                    _buildFilterButton('WIN', AppStrings.tr('filter_win', lang), cardColor, AppColors.winText, mutedColor),
+                    _buildFilterButton('LOSE', AppStrings.tr('filter_lose', lang), cardColor, AppColors.loseText, mutedColor),
+                    _buildFilterButton('BE', AppStrings.tr('filter_be', lang), cardColor, AppColors.beText, mutedColor),
+                  ],
+                ),
+              ),
+
+              // Empty State
+              if (allTrades.isEmpty)
+                Container(
                   padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
                   alignment: Alignment.center,
                   child: Column(
@@ -210,11 +187,9 @@ class _JournalScreenState extends State<JournalScreen> {
                       ),
                     ],
                   ),
-                );
-              }
-
-              if (isEmptyFiltered) {
-                return Container(
+                )
+              else if (filteredTrades.isEmpty)
+                Container(
                   padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
                   alignment: Alignment.center,
                   child: Column(
@@ -236,60 +211,73 @@ class _JournalScreenState extends State<JournalScreen> {
                       ),
                     ],
                   ),
-                );
-              }
+                )
+              else
+                // Monthly Grouped Trade List
+                ...monthlyTrades.entries.map((entry) {
+                  final monthTitle = entry.key;
+                  final tradesInMonth = entry.value;
+                  final totalMonthPL = monthlyTotalPL[monthTitle] ?? 0.0;
+                  final plColor = totalMonthPL > 0
+                      ? AppColors.winText
+                      : (totalMonthPL < 0 ? AppColors.loseText : mutedColor);
 
-              final item = journalItems[index - 3];
-              if (item is _MonthHeaderItem) {
-                final plColor = item.totalPL > 0
-                    ? AppColors.winText
-                    : (item.totalPL < 0 ? AppColors.loseText : mutedColor);
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        item.title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: mutedColor,
+                      // Month Header with Subtotal
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              monthTitle,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: mutedColor,
+                              ),
+                            ),
+                            Text(
+                              Formatters.formatAmountSigned(
+                                totalMonthPL,
+                                currency: provider.activeAccount.currency,
+                              ),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: plColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        Formatters.formatAmountSigned(
-                          item.totalPL,
-                          currency: provider.activeAccount.currency,
-                        ),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: plColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
 
-              final cardItem = item as _TradeCardItem;
-              return TradeCard(
-                trade: cardItem.trade,
-                tradeIndex: cardItem.tradeIndex,
-                cumulativeEquity: cardItem.cumulativeEquity,
-                changePercentage: cardItem.changePercentage,
-                onTap: () {
-                  TradeDetailSheet.show(
-                    context: context,
-                    trade: cardItem.trade,
-                    tradeIndex: cardItem.tradeIndex,
-                    cumulativeEquity: cardItem.cumulativeEquity,
-                    changePercentage: cardItem.changePercentage,
+                      // Trade Cards in Month
+                      ...tradesInMonth.map((trade) {
+                        return TradeCard(
+                          trade: trade,
+                          tradeIndex: tradeIndexMap[trade.id] ?? 1,
+                          cumulativeEquity:
+                              tradeEquityMap[trade.id] ?? initialCapital,
+                          changePercentage: tradeChangeMap[trade.id] ?? 0.0,
+                          onTap: () {
+                            TradeDetailSheet.show(
+                              context: context,
+                              trade: trade,
+                              tradeIndex: tradeIndexMap[trade.id] ?? 1,
+                              cumulativeEquity:
+                                  tradeEquityMap[trade.id] ?? initialCapital,
+                              changePercentage: tradeChangeMap[trade.id] ?? 0.0,
+                            );
+                          },
+                        );
+                      }),
+                    ],
                   );
-                },
-              );
-            },
+                }),
+            ],
           ),
         ),
       ),
@@ -338,26 +326,4 @@ class _JournalScreenState extends State<JournalScreen> {
       ),
     );
   }
-}
-
-abstract class _JournalListItem {}
-
-class _MonthHeaderItem extends _JournalListItem {
-  final String title;
-  final double totalPL;
-  _MonthHeaderItem(this.title, this.totalPL);
-}
-
-class _TradeCardItem extends _JournalListItem {
-  final Trade trade;
-  final int tradeIndex;
-  final double cumulativeEquity;
-  final double changePercentage;
-
-  _TradeCardItem({
-    required this.trade,
-    required this.tradeIndex,
-    required this.cumulativeEquity,
-    required this.changePercentage,
-  });
 }

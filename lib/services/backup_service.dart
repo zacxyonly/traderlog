@@ -2,172 +2,345 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:sqflite/sqflite.dart';
-import '../database/db_helper.dart';
+import '../models/app_settings.dart';
+import '../models/trade.dart';
 
-class BackupRestoreResult {
-  final bool success;
-  final int restoredImagesCount;
-  final String? message;
+class BackupException implements Exception {
+  final String message;
+  BackupException(this.message);
 
-  BackupRestoreResult({
-    required this.success,
-    this.restoredImagesCount = 0,
-    this.message,
+  @override
+  String toString() => message;
+}
+
+/// Summary shown to the user before they confirm a restore.
+class BackupPreview {
+  final int tradeCount;
+  final int accountCount;
+  final int imageCount;
+  final DateTime? createdAt;
+
+  const BackupPreview({
+    required this.tradeCount,
+    required this.accountCount,
+    required this.imageCount,
+    required this.createdAt,
   });
 }
 
+/// Fully decoded backup, with screenshots already written to disk and the
+/// trades' image paths pointing at those new files.
+class BackupData {
+  final List<Trade> trades;
+  final AppSettings settings;
+
+  const BackupData({required this.trades, required this.settings});
+}
+
+/// Full backup / restore as a single ZIP:
+///
+///   manifest.json   -> format marker + version + creation time
+///   data.json       -> trades + accounts + settings
+///   images/...      -> every screenshot attached to a trade
+///
+/// The PIN hash, biometric flag and "last backup" date are deliberately NOT
+/// written to the backup: the file is meant to be uploaded to cloud storage,
+/// and a PIN belongs to the device it was set on.
 class BackupService {
-  /// Builds in-memory ZIP archive from database bytes, screenshot images, and metadata
-  static Uint8List createArchiveBytes({
-    required Uint8List dbBytes,
-    required Map<String, Uint8List> images,
-    Map<String, dynamic>? extraMetadata,
+  static const String appId = 'traderlog';
+  static const int formatVersion = 1;
+  static const String _manifestName = 'manifest.json';
+  static const String _dataName = 'data.json';
+  static const String _imagesDir = 'images/';
+
+  /// Settings keys that never leave the device.
+  static const Set<String> _deviceOnlyKeys = {
+    'pin_code',
+    'is_biometric_enabled',
+    'last_backup_date',
+  };
+
+  static const Set<String> _allowedImageExt = {
+    'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif',
+  };
+
+  // Guards against absurd / malicious archives.
+  static const int _maxEntries = 20000;
+  static const int _maxJsonBytes = 50 * 1024 * 1024;
+
+  // ---------------------------------------------------------------- export
+
+  /// Builds the ZIP in memory. Screenshots whose file no longer exists are
+  /// simply left out (the trade is kept, without that image).
+  static List<int> buildBackupBytes({
+    required List<Trade> trades,
+    required AppSettings settings,
+    DateTime? now,
   }) {
     final archive = Archive();
+    final tradeMaps = <Map<String, dynamic>>[];
 
-    // 1. Add SQLite database file
-    archive.addFile(ArchiveFile('traderlog.db', dbBytes.length, dbBytes));
+    for (var i = 0; i < trades.length; i++) {
+      final t = trades[i];
+      final map = t.toMap();
+      map['image_path'] =
+          _addImage(archive, t.imagePath, '${_imagesDir}${i}_before');
+      map['image_path_after'] =
+          _addImage(archive, t.imagePathAfter, '${_imagesDir}${i}_after');
+      tradeMaps.add(map);
+    }
 
-    // 2. Add screenshots in images/ subfolder
-    images.forEach((fileName, bytes) {
-      archive.addFile(ArchiveFile('images/$fileName', bytes.length, bytes));
-    });
+    final settingsMap = Map<String, String>.from(settings.toDatabaseMap())
+      ..removeWhere((key, _) => _deviceOnlyKeys.contains(key));
 
-    // 3. Add manifest metadata
-    final manifest = {
-      'app': 'TraderLog',
-      'version': '1.0.0',
-      'exportDate': DateTime.now().toIso8601String(),
-      'imageCount': images.length,
-      ...?extraMetadata,
+    final data = <String, dynamic>{
+      'trades': tradeMaps,
+      'settings': settingsMap,
     };
-    final manifestBytes = utf8.encode(jsonEncode(manifest));
-    archive.addFile(ArchiveFile('manifest.json', manifestBytes.length, manifestBytes));
+    final manifest = <String, dynamic>{
+      'app': appId,
+      'formatVersion': formatVersion,
+      'createdAt': (now ?? DateTime.now()).toIso8601String(),
+      'tradeCount': trades.length,
+    };
 
-    final zipData = ZipEncoder().encode(archive);
-    return Uint8List.fromList(zipData);
+    _addBytes(archive, _manifestName, utf8.encode(jsonEncode(manifest)));
+    _addBytes(archive, _dataName, utf8.encode(jsonEncode(data)));
+
+    // `encode` is nullable in archive 3.x and non-nullable in 4.x; keeping it
+    // dynamic compiles against both.
+    final dynamic encoded = ZipEncoder().encode(archive);
+    if (encoded == null) {
+      throw BackupException('Gagal membuat file ZIP cadangan.');
+    }
+    return List<int>.from(encoded as List);
   }
 
-  /// Exports a complete backup (.zip) containing SQLite database and screenshot images
-  static Future<String> exportFullBackup({String? shareText}) async {
-    // 1. Read SQLite database bytes
-    final dbDir = await getDatabasesPath();
-    final dbPath = p.join(dbDir, 'traderlog.db');
-    final dbFile = File(dbPath);
-    if (!await dbFile.exists()) {
-      throw Exception('Database file not found at $dbPath');
+  /// Returns the archive-relative name of the stored image, or null.
+  static String? _addImage(Archive archive, String? path, String baseName) {
+    if (path == null || path.trim().isEmpty) return null;
+    try {
+      final file = File(path);
+      if (!file.existsSync()) return null;
+      final bytes = file.readAsBytesSync();
+      final ext = _extensionOf(path);
+      final name = '$baseName.$ext';
+      _addBytes(archive, name, bytes);
+      return name;
+    } catch (_) {
+      return null;
     }
-    final dbBytes = await dbFile.readAsBytes();
+  }
 
-    // 2. Read all chart images from app documents
-    final appDir = await getApplicationDocumentsDirectory();
-    final Map<String, Uint8List> images = {};
-    if (await appDir.exists()) {
-      final files = appDir.listSync(recursive: false);
-      for (final f in files) {
-        if (f is File) {
-          final baseName = p.basename(f.path);
-          if (baseName.startsWith('chart_')) {
-            try {
-              final bytes = await f.readAsBytes();
-              images[baseName] = bytes;
-            } catch (_) {}
-          }
-        }
-      }
-    }
+  static void _addBytes(Archive archive, String name, List<int> bytes) {
+    final data = Uint8List.fromList(bytes);
+    archive.addFile(ArchiveFile(name, data.length, data));
+  }
 
-    // 3. Build ZIP
-    final zipBytes = createArchiveBytes(
-      dbBytes: dbBytes,
-      images: images,
-    );
+  static String _extensionOf(String path) {
+    final dot = path.lastIndexOf('.');
+    if (dot == -1 || dot == path.length - 1) return 'jpg';
+    final ext = path.substring(dot + 1).toLowerCase();
+    return _allowedImageExt.contains(ext) ? ext : 'jpg';
+  }
 
-    // 4. Save to temporary directory
+  /// Builds the ZIP, writes it to a temp file and opens the share sheet.
+  static Future<File> exportBackup({
+    required List<Trade> trades,
+    required AppSettings settings,
+    required String fileName,
+    String? shareText,
+  }) async {
+    final bytes = buildBackupBytes(trades: trades, settings: settings);
     final tempDir = await getTemporaryDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final fileName = 'traderlog_full_backup_$timestamp.zip';
-    final zipFile = File(p.join(tempDir.path, fileName));
-    await zipFile.writeAsBytes(zipBytes, flush: true);
+    final file = File('${tempDir.path}/$fileName');
+    await file.writeAsBytes(bytes, flush: true);
 
-    // 5. Share via native share sheet
     await Share.shareXFiles(
-      [XFile(zipFile.path, mimeType: 'application/zip')],
-      text: shareText ?? 'TraderLog Full Backup (.zip)',
+      [XFile(file.path, mimeType: 'application/zip')],
+      text: shareText,
       subject: 'TraderLog Backup',
     );
-
-    return zipFile.path;
+    return file;
   }
 
-  /// Restores complete backup (.zip) containing SQLite database and screenshot images
-  static Future<BackupRestoreResult> restoreFullBackup(String zipFilePath) async {
-    final zipFile = File(zipFilePath);
-    if (!await zipFile.exists()) {
-      return BackupRestoreResult(
-        success: false,
-        message: 'File cadangan tidak ditemukan.',
+  // --------------------------------------------------------------- restore
+
+  /// Opens and validates a backup. Nothing is written to disk yet.
+  static OpenedBackup open(List<int> zipBytes) {
+    final Archive archive;
+    try {
+      archive = ZipDecoder().decodeBytes(zipBytes);
+    } catch (_) {
+      throw BackupException('File ini bukan ZIP cadangan TraderLog yang valid.');
+    }
+
+    if (archive.length > _maxEntries) {
+      throw BackupException('File cadangan terlalu besar atau tidak wajar.');
+    }
+
+    final entries = <String, ArchiveFile>{};
+    for (final f in archive) {
+      if (f.isFile) entries[f.name] = f;
+    }
+
+    final manifestFile = entries[_manifestName];
+    final dataFile = entries[_dataName];
+    if (manifestFile == null || dataFile == null) {
+      throw BackupException('File ini bukan ZIP cadangan TraderLog yang valid.');
+    }
+
+    final Map<String, dynamic> manifest;
+    final Map<String, dynamic> data;
+    try {
+      manifest = _readJson(manifestFile);
+      data = _readJson(dataFile);
+    } catch (_) {
+      throw BackupException('Isi file cadangan rusak.');
+    }
+
+    if (manifest['app'] != appId) {
+      throw BackupException('File ini bukan cadangan TraderLog.');
+    }
+    final version = manifest['formatVersion'];
+    if (version is! int || version < 1) {
+      throw BackupException('Versi format cadangan tidak dikenali.');
+    }
+    if (version > formatVersion) {
+      throw BackupException(
+        'Cadangan ini dibuat oleh versi TraderLog yang lebih baru. '
+        'Perbarui aplikasi lalu coba lagi.',
       );
     }
 
+    final rawTrades = data['trades'];
+    final rawSettings = data['settings'];
+    if (rawTrades is! List || rawSettings is! Map) {
+      throw BackupException('Isi file cadangan rusak.');
+    }
+
+    final settingsMap = <String, String>{
+      for (final e in rawSettings.entries)
+        if (!_deviceOnlyKeys.contains(e.key.toString()))
+          e.key.toString(): e.value?.toString() ?? '',
+    };
+
+    final tradeMaps = <Map<String, dynamic>>[];
     try {
-      final zipBytes = await zipFile.readAsBytes();
-      final archive = ZipDecoder().decodeBytes(zipBytes);
+      for (final raw in rawTrades) {
+        tradeMaps.add(Map<String, dynamic>.from(raw as Map));
+      }
+      // Validate every trade up-front so a bad file fails before any write.
+      for (final m in tradeMaps) {
+        Trade.fromMap(m);
+      }
+    } catch (_) {
+      throw BackupException('Data trade di file cadangan rusak.');
+    }
 
-      ArchiveFile? dbFileInZip;
-      final List<ArchiveFile> imageFilesInZip = [];
+    final settings = AppSettings.fromDatabaseMap(settingsMap);
 
-      for (final file in archive) {
-        if (file.name == 'traderlog.db') {
-          dbFileInZip = file;
-        } else if (file.name.startsWith('images/') && file.isFile) {
-          imageFilesInZip.add(file);
+    var imageCount = 0;
+    for (final m in tradeMaps) {
+      for (final key in const ['image_path', 'image_path_after']) {
+        final ref = m[key];
+        if (ref is String && _isSafeImageRef(ref) && entries.containsKey(ref)) {
+          imageCount++;
         }
       }
+    }
 
-      if (dbFileInZip == null) {
-        return BackupRestoreResult(
-          success: false,
-          message: 'Format berkas zip tidak valid (file traderlog.db tidak ditemukan).',
-        );
+    return OpenedBackup._(
+      entries: entries,
+      tradeMaps: tradeMaps,
+      settings: settings,
+      preview: BackupPreview(
+        tradeCount: tradeMaps.length,
+        accountCount: settings.accounts.length,
+        imageCount: imageCount,
+        createdAt: DateTime.tryParse(manifest['createdAt']?.toString() ?? ''),
+      ),
+    );
+  }
+
+  static Map<String, dynamic> _readJson(ArchiveFile file) {
+    if (file.size > _maxJsonBytes) throw const FormatException('too large');
+    final dynamic content = file.content;
+    final text = utf8.decode(List<int>.from(content as List));
+    return Map<String, dynamic>.from(jsonDecode(text) as Map);
+  }
+
+  /// Only `images/<plain file name>` is ever honoured: no absolute paths, no
+  /// `..`, no sub-directories.
+  static bool _isSafeImageRef(String ref) {
+    if (!ref.startsWith(_imagesDir)) return false;
+    final rest = ref.substring(_imagesDir.length);
+    if (rest.isEmpty) return false;
+    if (rest.contains('/') || rest.contains('\\') || rest.contains('..')) {
+      return false;
+    }
+    return true;
+  }
+}
+
+/// A validated backup that has not touched the filesystem yet.
+class OpenedBackup {
+  final Map<String, ArchiveFile> _entries;
+  final List<Map<String, dynamic>> _tradeMaps;
+  final AppSettings _settings;
+  final BackupPreview preview;
+
+  OpenedBackup._({
+    required Map<String, ArchiveFile> entries,
+    required List<Map<String, dynamic>> tradeMaps,
+    required AppSettings settings,
+    required this.preview,
+  })  : _entries = entries,
+        _tradeMaps = tradeMaps,
+        _settings = settings;
+
+  /// Writes the screenshots into [imagesDir] under fresh file names and
+  /// returns the trades with their image paths rewritten. If anything fails,
+  /// the files written so far are removed again.
+  Future<BackupData> materialize(Directory imagesDir) async {
+    final written = <File>[];
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    try {
+      if (!imagesDir.existsSync()) {
+        imagesDir.createSync(recursive: true);
       }
 
-      // 1. Safely close existing database connection
-      await DBHelper.instance.closeDB();
-
-      // 2. Overwrite database file
-      final dbDir = await getDatabasesPath();
-      final dbPath = p.join(dbDir, 'traderlog.db');
-      final targetDbFile = File(dbPath);
-      await targetDbFile.writeAsBytes(dbFileInZip.content as List<int>, flush: true);
-
-      // 3. Extract screenshot images to app documents directory
-      final appDir = await getApplicationDocumentsDirectory();
-      int restoredImgCount = 0;
-      for (final imgFile in imageFilesInZip) {
-        final imgName = p.basename(imgFile.name);
-        if (imgName.isNotEmpty) {
-          final targetPath = p.join(appDir.path, imgName);
-          final targetImg = File(targetPath);
-          await targetImg.writeAsBytes(imgFile.content as List<int>, flush: true);
-          restoredImgCount++;
-        }
+      Future<String?> restoreImage(dynamic ref, String tag) async {
+        if (ref is! String || !BackupService._isSafeImageRef(ref)) return null;
+        final entry = _entries[ref];
+        if (entry == null) return null;
+        final ext = BackupService._extensionOf(ref);
+        final file = File('${imagesDir.path}/restored_${stamp}_$tag.$ext');
+        final dynamic content = entry.content;
+        await file.writeAsBytes(List<int>.from(content as List), flush: true);
+        written.add(file);
+        return file.path;
       }
 
-      return BackupRestoreResult(
-        success: true,
-        restoredImagesCount: restoredImgCount,
-        message: 'Cadangan berhasil dipulihkan.',
-      );
+      final trades = <Trade>[];
+      for (var i = 0; i < _tradeMaps.length; i++) {
+        final map = Map<String, dynamic>.from(_tradeMaps[i]);
+        map['image_path'] = await restoreImage(map['image_path'], '${i}_before');
+        map['image_path_after'] =
+            await restoreImage(map['image_path_after'], '${i}_after');
+        trades.add(Trade.fromMap(map));
+      }
+      return BackupData(trades: trades, settings: _settings);
     } catch (e) {
-      return BackupRestoreResult(
-        success: false,
-        message: 'Gagal memulihkan cadangan: $e',
-      );
+      for (final f in written) {
+        try {
+          if (f.existsSync()) f.deleteSync();
+        } catch (_) {}
+      }
+      if (e is BackupException) rethrow;
+      throw BackupException('Gagal memulihkan data: $e');
     }
   }
 }

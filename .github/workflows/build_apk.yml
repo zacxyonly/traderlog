@@ -1,13 +1,13 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [ main, master ]
-    tags:
-      - 'v*'
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Opsional: isi tag rilis (mis. v1.0.0) untuk membuat GitHub Release. Kosongkan untuk build saja.'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -40,63 +40,54 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Analyze code (lints)
+      - name: Static analysis
         run: flutter analyze
 
       - name: Run unit tests
         run: flutter test
 
-      - name: Configure Keystore from Secrets
+      - name: Decode release keystore from secrets
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          SECRET_STORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
-          SECRET_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          SECRET_KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.TRADERLOG_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.TRADERLOG_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.TRADERLOG_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.TRADERLOG_KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "Using release keystore provided via repository secrets."
-            echo "$KEYSTORE_BASE64" | base64 -d > /tmp/release-keystore.jks
-            echo "KEYSTORE_PATH=/tmp/release-keystore.jks" >> $GITHUB_ENV
-            echo "KEYSTORE_PASSWORD=${SECRET_STORE_PASS}" >> $GITHUB_ENV
-            echo "KEY_ALIAS=${SECRET_KEY_ALIAS}" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=${SECRET_KEY_PASS}" >> $GITHUB_ENV
-          else
-            echo "No KEYSTORE_BASE64 secret provided. Generating standalone release keystore."
-            mkdir -p /tmp/keystore
-            keytool -genkey -v -keystore /tmp/keystore/release.jks -alias traderlog -keyalg RSA -keysize 2048 -validity 10000 -storepass traderlog -keypass traderlog -dname "CN=TraderLog, OU=Release, O=TraderLog, L=Jakarta, C=ID"
-            echo "KEYSTORE_PATH=/tmp/keystore/release.jks" >> $GITHUB_ENV
-            echo "KEYSTORE_PASSWORD=traderlog" >> $GITHUB_ENV
-            echo "KEY_ALIAS=traderlog" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=traderlog" >> $GITHUB_ENV
+          missing=""
+          [ -z "$KEYSTORE_BASE64" ]   && missing="$missing TRADERLOG_KEYSTORE_BASE64"
+          [ -z "$KEYSTORE_PASSWORD" ] && missing="$missing TRADERLOG_KEYSTORE_PASSWORD"
+          [ -z "$KEY_ALIAS" ]         && missing="$missing TRADERLOG_KEY_ALIAS"
+          [ -z "$KEY_PASSWORD" ]      && missing="$missing TRADERLOG_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing GitHub Secrets:$missing. Run tools/generate_keystore.sh and add them (see README, 'Signing')."
+            exit 1
           fi
+          # Keep the keystore outside the workspace so it can never be committed or uploaded.
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "TRADERLOG_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "TRADERLOG_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "TRADERLOG_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "TRADERLOG_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Build Android Release APK
-        env:
-          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
-          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ env.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
         run: flutter build apk --release --android-skip-build-dependency-validation
 
-      - name: Package Release APKs
+      - name: Verify APK is signed with the release key
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | tee apk-cert.txt
+          if grep -qi "Android Debug" apk-cert.txt; then
+            echo "::error::APK is signed with the DEBUG key."
+            exit 1
+          fi
+          rm -f apk-cert.txt
+
+      - name: Rename APK for clarity
         run: |
           mkdir -p release-output
-          TAG_NAME="${GITHUB_REF_NAME:-v1.0.0}"
-          if [ -f build/app/outputs/flutter-apk/app-universal-release.apk ]; then
-            cp build/app/outputs/flutter-apk/app-universal-release.apk "release-output/TraderLog-${TAG_NAME}-universal.apk"
-          fi
-          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            cp build/app/outputs/flutter-apk/app-release.apk "release-output/TraderLog-${TAG_NAME}.apk"
-          fi
-          for apk in build/app/outputs/flutter-apk/*-release.apk; do
-            if [ -f "$apk" ]; then
-              base=$(basename "$apk" -release.apk)
-              if [ "$base" != "app" ] && [ "$base" != "app-universal" ]; then
-                cp "$apk" "release-output/TraderLog-${TAG_NAME}-${base}.apk"
-              fi
-            fi
-          done
-          ls -la release-output/
+          TAG_NAME="${{ inputs.release_tag }}"
+          TAG_NAME="${TAG_NAME:-build-${GITHUB_RUN_NUMBER}}"
+          cp build/app/outputs/flutter-apk/app-release.apk "release-output/TraderLog-${TAG_NAME}.apk"
 
       - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
@@ -107,10 +98,9 @@ jobs:
           retention-days: 30
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ inputs.release_tag != '' }}
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release_tag }}
           files: release-output/TraderLog-*.apk
-          name: "TraderLog ${{ github.ref_name }}"
           generate_release_notes: true
-

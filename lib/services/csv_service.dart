@@ -20,7 +20,7 @@ class CSVImportResult {
 }
 
 class CSVService {
-  /// Generate CSV string with UTF-8 BOM from list of trades
+  /// Generate CSV string with UTF-8 BOM
   static String generateCSV({
     required List<Trade> trades,
     required double initialCapital,
@@ -44,7 +44,6 @@ class CSVService {
       'Equity',
       'Why',
       'Note',
-      'Tags',
       'Account'
     ]);
 
@@ -72,7 +71,6 @@ class CSVService {
         equity.toStringAsFixed(2),
         t.why ?? '',
         t.note ?? '',
-        t.tags ?? '',
         t.accountId ?? '',
       ]);
     }
@@ -100,7 +98,7 @@ class CSVService {
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'text/csv')],
       text: shareText,
-      subject: 'TraderLog CSV Export',
+      subject: 'Traderlog Backup CSV',
     );
 
     return file.path;
@@ -110,7 +108,6 @@ class CSVService {
   static CSVImportResult parseCSV(
     String content, {
     required List<Trade> existingTrades,
-    String? defaultAccountId,
     bool replace = false,
   }) {
     String cleanContent = content.replaceAll('\uFEFF', '').trim();
@@ -155,7 +152,6 @@ class CSVService {
       'pl': ['pl', 'profit or loss', 'profit/loss', 'profit', 'untung/rugi'],
       'why': ['why', 'alasan', 'alasan ambil trade', 'setup', 'analisis'],
       'note': ['note', 'trade note', 'catatan', 'keterangan'],
-      'tags': ['tags', 'tag', 'setup/emotion', 'setup_tags', 'label'],
       'account': ['account', 'account_id', 'akun', 'id akun'],
     };
 
@@ -180,9 +176,11 @@ class CSVService {
     double? parseNum(String val) {
       var s = val.replaceAll(RegExp(r'[\$\s]'), '');
       if (s.isEmpty) return null;
+      // Handle parentheses for negative numbers, e.g. (50.0) -> -50.0
       if (s.startsWith('(') && s.endsWith(')')) {
         s = '-${s.substring(1, s.length - 1)}';
       }
+      // Handle commas and periods
       if (s.contains(',') && s.contains('.')) {
         if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
           s = s.replaceAll('.', '').replaceAll(',', '.');
@@ -201,6 +199,7 @@ class CSVService {
         return DateTime.parse(val);
       } catch (_) {}
 
+      // Try dd/MM/yyyy HH:mm or yyyy/MM/dd HH:mm
       final match = RegExp(
               r'^(\d{1,4})[./-](\d{1,2})[./-](\d{1,4})(?:[ T]+(\d{1,2}):(\d{2}))?')
           .firstMatch(val);
@@ -222,12 +221,11 @@ class CSVService {
       return null;
     }
 
-    final targetAcc = defaultAccountId ?? 'acc_real';
     final Set<String> existingKeys = replace
         ? {}
         : existingTrades
             .map((t) =>
-                '${(t.accountId ?? targetAcc).trim()}|${t.date.toIso8601String()}|${t.sym}|${t.pl}|${t.entry ?? 0}')
+                '${t.date.toIso8601String()}|${t.sym}|${t.pl}|${t.entry ?? 0}')
             .toSet();
 
     final List<Trade> importedTrades = [];
@@ -262,11 +260,9 @@ class CSVService {
       final lot = parseNum(getVal(row, 'lot'));
       final why = getVal(row, 'why');
       final note = getVal(row, 'note');
-      final tags = getVal(row, 'tags');
-      final rawAccount = getVal(row, 'account');
-      final account = rawAccount.isNotEmpty ? rawAccount : targetAcc;
+      final account = getVal(row, 'account');
 
-      final key = '${account.trim()}|${date.toIso8601String()}|$sym|$pl|${entry ?? 0}';
+      final key = '${date.toIso8601String()}|$sym|$pl|${entry ?? 0}';
       if (existingKeys.contains(key)) {
         duplicates++;
         continue;
@@ -286,8 +282,7 @@ class CSVService {
         pl: pl,
         why: why.isNotEmpty ? why : null,
         note: note.isNotEmpty ? note : null,
-        tags: tags.isNotEmpty ? tags : null,
-        accountId: account,
+        accountId: account.isNotEmpty ? account : null,
       ));
     }
 

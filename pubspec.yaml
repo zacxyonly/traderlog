@@ -1,7 +1,7 @@
 name: traderlog
 description: "Traderlog - Jurnal Trading Profesional untuk Android"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.5.2+10
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.8
   provider: ^6.1.2
   sqflite: ^2.3.3+1
   path: ^1.9.0

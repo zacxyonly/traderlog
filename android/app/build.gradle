@@ -5,25 +5,9 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-} else {
-    def appKeyProps = file('key.properties')
-    if (appKeyProps.exists()) {
-        keystoreProperties.load(new FileInputStream(appKeyProps))
-    }
-}
-
-def releaseKeystorePath = System.getenv("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_PATH") ?: keystoreProperties['storeFile']
-def releaseStorePassword = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties['storePassword']
-def releaseKeyAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties['keyAlias']
-def releaseKeyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProperties['keyPassword']
-
 android {
     namespace = "com.traderlog.traderlog"
-    compileSdk = 35
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -36,20 +20,39 @@ android {
     }
 
     defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.traderlog.traderlog"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 21
-        targetSdk = 35
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     signingConfigs {
         release {
-            if (releaseKeystorePath && file(releaseKeystorePath).exists()) {
-                storeFile file(releaseKeystorePath)
-                storePassword releaseStorePassword
-                keyAlias releaseKeyAlias
-                keyPassword releaseKeyPassword
+            // Release signing material is NEVER stored in the repository.
+            // It comes from (in order):
+            //   1. environment variables (used by CI / GitHub Actions)
+            //   2. android/key.properties (local machine only, git-ignored)
+            def props = new Properties()
+            def propsFile = rootProject.file('key.properties')
+            if (propsFile.exists()) {
+                propsFile.withInputStream { props.load(it) }
+            }
+
+            def storePath = System.getenv('TRADERLOG_KEYSTORE_PATH') ?: props['storeFile']
+            def storePass = System.getenv('TRADERLOG_KEYSTORE_PASSWORD') ?: props['storePassword']
+            def alias     = System.getenv('TRADERLOG_KEY_ALIAS') ?: props['keyAlias']
+            def keyPass   = System.getenv('TRADERLOG_KEY_PASSWORD') ?: props['keyPassword']
+
+            if (storePath && storePass && alias && keyPass) {
+                // Relative paths in key.properties are resolved from android/.
+                storeFile (new File(storePath).isAbsolute() ? new File(storePath) : rootProject.file(storePath))
+                storePassword storePass
+                keyAlias alias
+                keyPassword keyPass
                 v1SigningEnabled true
                 v2SigningEnabled true
             }
@@ -58,27 +61,19 @@ android {
 
     buildTypes {
         release {
-            if (signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()) {
-                signingConfig signingConfigs.release
+            // Use the real release key when it is configured. Otherwise fall
+            // back to the debug key so `flutter run --release` still works
+            // locally. That APK is NOT publishable; CI refuses to build
+            // without the release key (see .github/workflows/build_apk.yml).
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig = signingConfigs.release
             } else {
-                signingConfig signingConfigs.debug
+                signingConfig = signingConfigs.debug
+                logger.warn('WARNING: release keystore not configured - signing with the DEBUG key. Do not publish this APK.')
             }
-            minifyEnabled true
-            shrinkResources false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-
-    splits {
-        abi {
-            enable true
-            reset()
-            include 'armeabi-v7a', 'arm64-v8a', 'x86_64'
-            universalApk true
         }
     }
 }
-
 
 flutter {
     source = "../.."

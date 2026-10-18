@@ -1,9 +1,13 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/app_settings.dart';
 import '../models/trade.dart';
 import '../models/trading_account.dart';
+import '../services/backup_service.dart';
+import '../services/currency_service.dart';
+import '../utils/pin_hasher.dart';
 
 class SymbolStat {
   final String symbol;
@@ -61,6 +65,7 @@ class PeriodSummary {
   final List<double> equityPoints;
   final List<SymbolStat> symbolStats;
   final List<Trade> trades;
+  final double totalPipsGained;
   final List<TagStat> setupStats;
   final List<TagStat> emotionStats;
 
@@ -88,6 +93,7 @@ class PeriodSummary {
     required this.equityPoints,
     required this.symbolStats,
     this.trades = const [],
+    this.totalPipsGained = 0.0,
     this.setupStats = const [],
     this.emotionStats = const [],
   });
@@ -99,31 +105,27 @@ class TradeProvider extends ChangeNotifier {
   List<Trade> _trades = [];
   AppSettings _settings = AppSettings();
   bool _isLoading = true;
+  bool _isSyncingRate = false;
   bool _isAppUnlocked = false;
-  final Map<String, PeriodSummary> _summaryCache = {};
-  List<Trade>? _cachedActiveTrades;
 
-  void _invalidateCache() {
-    _cachedActiveTrades = null;
-    _summaryCache.clear();
-  }
-
-  /// Active account's trades (cached per account, chronological)
+  /// Active account's trades (chronological)
   List<Trade> get trades {
-    return _cachedActiveTrades ??= _trades
-        .where((t) => (t.accountId ?? 'acc_real') == _settings.activeAccountId)
-        .toList();
+    final activeId = _settings.activeAccountId;
+    return _trades.where((t) {
+      final acc = t.accountId ?? 'acc_real';
+      return acc == activeId;
+    }).toList();
   }
 
-  /// All trades across all accounts
-  List<Trade> get allTrades => List.unmodifiable(_trades);
+  /// All trades across all accounts (for backup / CSV export)
+  List<Trade> get allTrades => _trades;
 
   AppSettings get settings => _settings;
+  TradingAccount get activeAccount => _settings.activeAccount;
   bool get isLoading => _isLoading;
+  bool get isSyncingRate => _isSyncingRate;
   bool get isAppUnlocked => _isAppUnlocked;
   bool get isLocked => _settings.isPinSet && !_isAppUnlocked;
-
-  TradingAccount get activeAccount => _settings.activeAccount;
 
   TradeProvider() {
     loadData();
@@ -136,7 +138,7 @@ class TradeProvider extends ChangeNotifier {
     try {
       _settings = await _db.getSettings();
       _trades = await _db.getAllTrades();
-      _invalidateCache();
+      await _migrateLegacyPin();
       if (!_settings.isPinSet) {
         _isAppUnlocked = true;
       }
@@ -148,9 +150,20 @@ class TradeProvider extends ChangeNotifier {
     }
   }
 
+  /// Old versions stored the PIN as plaintext. Hash it in place.
+  Future<void> _migrateLegacyPin() async {
+    if (!_settings.hasLegacyPlainPin) return;
+    try {
+      final hashed = PinHasher.hash(_settings.pinHash!.trim());
+      _settings = _settings.copyWith(pinHash: hashed);
+      await _db.saveSettings(_settings);
+    } catch (e) {
+      debugPrint('PIN migration failed: $e');
+    }
+  }
+
   // --- Trade Operations ---
   Future<void> addTrade(Trade trade) async {
-    _invalidateCache();
     final tradeWithAccount =
         (trade.accountId != null && trade.accountId!.isNotEmpty)
             ? trade
@@ -160,38 +173,39 @@ class TradeProvider extends ChangeNotifier {
     _trades.add(tradeWithAccount);
     _trades.sort((a, b) => a.date.compareTo(b.date));
 
-    if (!_settings.symbols.contains(tradeWithAccount.sym)) {
-      final updated = List<String>.from(_settings.symbols)..add(tradeWithAccount.sym);
-      await updateSettings(_settings.copyWith(symbols: updated));
+    // If symbol is new, add to settings symbols
+    if (!_settings.symbols.contains(trade.sym)) {
+      final updatedSyms = List<String>.from(_settings.symbols)..add(trade.sym);
+      await updateSettings(_settings.copyWith(symbols: updatedSyms));
     } else {
       notifyListeners();
     }
   }
 
   Future<void> updateTrade(Trade trade) async {
-    _invalidateCache();
     await _db.updateTrade(trade);
     final idx = _trades.indexWhere((t) => t.id == trade.id);
     if (idx != -1) {
-      final old = _trades[idx];
-      if (old.imagePath != null &&
-          old.imagePath != trade.imagePath &&
-          old.imagePath != trade.imagePathAfter) {
-        _safeDeleteFile(old.imagePath);
-      }
-      if (old.imagePathAfter != null &&
-          old.imagePathAfter != trade.imagePathAfter &&
-          old.imagePathAfter != trade.imagePath) {
-        _safeDeleteFile(old.imagePathAfter);
-      }
       _trades[idx] = trade;
       _trades.sort((a, b) => a.date.compareTo(b.date));
       notifyListeners();
     }
   }
 
+  void _safeDeleteFile(String? path) {
+    if (path != null && path.trim().isNotEmpty) {
+      try {
+        final f = File(path);
+        if (f.existsSync()) {
+          f.deleteSync();
+        }
+      } catch (e) {
+        debugPrint('Failed to delete file at $path: $e');
+      }
+    }
+  }
+
   Future<void> deleteTrade(String id) async {
-    _invalidateCache();
     final idx = _trades.indexWhere((t) => t.id == id);
     if (idx != -1) {
       final t = _trades[idx];
@@ -204,19 +218,18 @@ class TradeProvider extends ChangeNotifier {
   }
 
   Future<void> deleteAllTrades() async {
-    _invalidateCache();
     final activeId = _settings.activeAccountId;
+    // Delete trades only for the active account
     for (final t in trades) {
       _safeDeleteFile(t.imagePath);
       _safeDeleteFile(t.imagePathAfter);
+      await _db.deleteTrade(t.id);
     }
-    await _db.deleteTradesByAccount(activeId);
     _trades.removeWhere((t) => (t.accountId ?? 'acc_real') == activeId);
     notifyListeners();
   }
 
   Future<void> importTrades(List<Trade> imported, {bool replace = false}) async {
-    _invalidateCache();
     final activeId = _settings.activeAccountId;
     final importedWithAccount = imported.map((t) {
       return (t.accountId != null && t.accountId!.isNotEmpty)
@@ -226,12 +239,11 @@ class TradeProvider extends ChangeNotifier {
 
     if (replace) {
       for (final t in trades) {
-        _safeDeleteFile(t.imagePath);
-        _safeDeleteFile(t.imagePathAfter);
+        await _db.deleteTrade(t.id);
       }
-      await _db.replaceTradesForAccount(activeId, importedWithAccount);
       _trades.removeWhere((t) => (t.accountId ?? 'acc_real') == activeId);
       _trades.addAll(importedWithAccount);
+      await _db.insertTradesBatch(importedWithAccount, replace: false);
     } else {
       _trades.addAll(importedWithAccount);
       await _db.insertTradesBatch(importedWithAccount, replace: false);
@@ -250,6 +262,37 @@ class TradeProvider extends ChangeNotifier {
     }
   }
 
+  /// Replaces all trades, accounts and settings with a restored backup.
+  /// The device's own PIN / biometric / last-backup values are preserved.
+  Future<void> restoreBackup(BackupData data) async {
+    final oldImages = <String?>[
+      for (final t in _trades) ...[t.imagePath, t.imagePathAfter],
+    ];
+    final restored = data.settings.copyWith(
+      pinHash: _settings.pinHash,
+      isBiometricEnabled: _settings.isBiometricEnabled,
+      lastBackupDate: _settings.lastBackupDate,
+    );
+
+    await _db.replaceAllData(trades: data.trades, settings: restored);
+
+    // Only after the DB commit succeeded, drop the previous screenshots.
+    final keep = <String>{
+      for (final t in data.trades) ...[
+        if (t.imagePath != null) t.imagePath!,
+        if (t.imagePathAfter != null) t.imagePathAfter!,
+      ],
+    };
+    for (final path in oldImages) {
+      if (path != null && !keep.contains(path)) _safeDeleteFile(path);
+    }
+
+    _trades = List<Trade>.from(data.trades)
+      ..sort((a, b) => a.date.compareTo(b.date));
+    _settings = restored;
+    notifyListeners();
+  }
+
   // --- Settings & Multi-Account Operations ---
   Future<void> updateSettings(AppSettings newSettings) async {
     _settings = newSettings;
@@ -258,7 +301,6 @@ class TradeProvider extends ChangeNotifier {
   }
 
   Future<void> switchAccount(String accountId) async {
-    _invalidateCache();
     if (_settings.activeAccountId != accountId) {
       final acc = _settings.accounts.firstWhere(
         (a) => a.id == accountId,
@@ -268,11 +310,11 @@ class TradeProvider extends ChangeNotifier {
         activeAccountId: accountId,
         accountCurrency: acc.currency,
       ));
+      await syncExchangeRate(notify: false);
     }
   }
 
   Future<void> addAccount(TradingAccount account) async {
-    _invalidateCache();
     final updated = List<TradingAccount>.from(_settings.accounts)..add(account);
     await updateSettings(_settings.copyWith(
       accounts: updated,
@@ -281,7 +323,6 @@ class TradeProvider extends ChangeNotifier {
   }
 
   Future<void> updateAccount(TradingAccount account) async {
-    _invalidateCache();
     final idx = _settings.accounts.indexWhere((a) => a.id == account.id);
     if (idx != -1) {
       final updated = List<TradingAccount>.from(_settings.accounts);
@@ -291,7 +332,6 @@ class TradeProvider extends ChangeNotifier {
   }
 
   Future<void> deleteAccount(String accountId) async {
-    _invalidateCache();
     if (_settings.accounts.length <= 1) return;
     final updated = List<TradingAccount>.from(_settings.accounts)
       ..removeWhere((a) => a.id == accountId);
@@ -302,8 +342,8 @@ class TradeProvider extends ChangeNotifier {
     for (final t in _trades.where((t) => (t.accountId ?? 'acc_real') == accountId).toList()) {
       _safeDeleteFile(t.imagePath);
       _safeDeleteFile(t.imagePathAfter);
+      await _db.deleteTrade(t.id);
     }
-    await _db.deleteTradesByAccount(accountId);
     _trades.removeWhere((t) => (t.accountId ?? 'acc_real') == accountId);
 
     await updateSettings(_settings.copyWith(
@@ -332,13 +372,66 @@ class TradeProvider extends ChangeNotifier {
     }
   }
 
+  DateTime? _pausedAt;
+
+  /// Called when the app goes to background. Locks immediately or starts the
+  /// auto-lock grace period depending on the user's preference.
+  void onAppPaused() {
+    if (!_settings.isPinSet || _isSystemPickerActive) {
+      _pausedAt = null;
+      return;
+    }
+    if (_settings.autoLockSeconds <= 0) {
+      _pausedAt = null;
+      lockApp();
+    } else {
+      _pausedAt = DateTime.now();
+    }
+  }
+
+  /// Called when the app returns to foreground; locks if the grace period passed.
+  void onAppResumed() {
+    final paused = _pausedAt;
+    _pausedAt = null;
+    if (paused == null || !_settings.isPinSet) return;
+    final elapsed = DateTime.now().difference(paused).inSeconds;
+    if (elapsed >= _settings.autoLockSeconds) {
+      lockApp();
+    }
+  }
+
+  /// Checks [pin] against the stored hash.
+  bool verifyPin(String pin) => PinHasher.verify(pin, _settings.pinHash);
+
+  /// Sets (or clears, when [pin] is null) the PIN. Only the hash is stored.
   Future<void> setPinCode(String? pin) async {
-    final hashedPin = (pin != null && pin.trim().isNotEmpty)
-        ? AppSettings.hashPin(pin.trim())
-        : null;
-    await updateSettings(_settings.copyWith(pinCode: hashedPin));
+    await updateSettings(
+      _settings.copyWith(
+        pinHash: pin == null ? null : PinHasher.hash(pin),
+        clearPin: pin == null,
+      ),
+    );
+    if (pin == null) {
+      // No PIN means no biometric lock either.
+      await updateSettings(_settings.copyWith(isBiometricEnabled: false));
+    }
     _isAppUnlocked = true;
   }
+
+  Future<void> setHideBalance(bool value) =>
+      updateSettings(_settings.copyWith(hideBalance: value));
+
+  Future<void> setHapticEnabled(bool value) =>
+      updateSettings(_settings.copyWith(hapticEnabled: value));
+
+  Future<void> setAutoLockSeconds(int seconds) =>
+      updateSettings(_settings.copyWith(autoLockSeconds: seconds));
+
+  Future<void> setWeekStartsMonday(bool value) =>
+      updateSettings(_settings.copyWith(weekStartsMonday: value));
+
+  Future<void> setDefaultLot(double lot) =>
+      updateSettings(_settings.copyWith(defaultLot: lot < 0 ? 0.0 : lot));
 
   Future<void> setBiometricEnabled(bool enabled) async {
     await updateSettings(_settings.copyWith(isBiometricEnabled: enabled));
@@ -354,21 +447,44 @@ class TradeProvider extends ChangeNotifier {
 
   Future<void> updateAccountCurrency(String currency) async {
     await updateSettings(_settings.copyWith(accountCurrency: currency));
+    // Also sync the currency of active account
     final active = activeAccount.copyWith(currency: currency);
     await updateAccount(active);
+    await syncExchangeRate();
   }
 
   Future<void> updateExchangeCurrency(String currency) async {
     await updateSettings(_settings.copyWith(exchangeCurrency: currency));
-  }
-
-  Future<void> updateExchangeRate(double rate) async {
-    await updateSettings(_settings.copyWith(exchangeRate: rate));
+    await syncExchangeRate();
   }
 
   Future<void> recordCloudBackup() async {
     final now = DateTime.now().toIso8601String();
     await updateSettings(_settings.copyWith(lastBackupDate: now));
+  }
+
+  /// Automatically synchronizes the latest exchange rate from the live open FX API.
+  Future<double?> syncExchangeRate({bool notify = true}) async {
+    _isSyncingRate = true;
+    if (notify) notifyListeners();
+
+    try {
+      final rate = await CurrencyService.fetchExchangeRate(
+        baseCurrency: activeAccount.currency,
+        targetCurrency: _settings.exchangeCurrency,
+      );
+      if (rate != null && rate > 0) {
+        _settings = _settings.copyWith(usdToIdrRate: rate);
+        await _db.saveSettings(_settings);
+        return rate;
+      }
+    } catch (e) {
+      debugPrint('Error syncing exchange rate: $e');
+    } finally {
+      _isSyncingRate = false;
+      if (notify) notifyListeners();
+    }
+    return null;
   }
 
   Future<void> addSymbol(String symbol) async {
@@ -400,14 +516,12 @@ class TradeProvider extends ChangeNotifier {
     return totalProfitLoss / activeAccount.initialCapital;
   }
 
-  double get currentEquityExchange {
+  double get currentEquityIDR {
     if (activeAccount.currency == _settings.exchangeCurrency) {
       return currentEquity;
     }
-    return currentEquity * _settings.exchangeRate;
+    return currentEquity * _settings.usdToIdrRate;
   }
-
-  double get currentEquityIDR => currentEquityExchange;
 
   /// Chronological equity history points for chart sparkline & equity curve
   List<double> get equityHistory {
@@ -423,30 +537,15 @@ class TradeProvider extends ChangeNotifier {
   /// Filtered list of trades for Journal screen (reverse chronological)
   List<Trade> getFilteredTrades({String query = '', String filter = 'ALL'}) {
     final q = query.trim().toLowerCase();
-    final f = filter.toUpperCase();
-
-    final activeTrades = trades;
-    final filtered = activeTrades.where((t) {
-      if (f == 'WIN' && t.result != TradeResult.win) return false;
-      if (f == 'LOSE' && t.result != TradeResult.lose) return false;
-      if (f == 'BE' && t.result != TradeResult.be) return false;
-
+    final list = trades.reversed.where((t) {
+      if (filter != 'ALL' && t.resultString != filter) return false;
       if (q.isNotEmpty) {
-        final fullText = '${t.sym} ${t.why ?? ''} ${t.note ?? ''} ${t.tags ?? ''}'.toLowerCase();
+        final fullText = '${t.sym} ${t.why ?? ''} ${t.note ?? ''}'.toLowerCase();
         if (!fullText.contains(q)) return false;
       }
       return true;
     }).toList();
-
-    return filtered.reversed.toList();
-  }
-
-  /// Trades filtered for a specific calendar day
-  List<Trade> getTradesForDay(DateTime day) {
-    return trades.where((t) =>
-        t.date.year == day.year &&
-        t.date.month == day.month &&
-        t.date.day == day.day).toList();
+    return list;
   }
 
   /// Daily net PnL mapped by 'YYYY-MM-DD' for the Heatmap Calendar
@@ -460,33 +559,38 @@ class TradeProvider extends ChangeNotifier {
     return pnlMap;
   }
 
-  /// Summary statistics calculation for 'all', '30', or '7' days (with caching)
-  PeriodSummary getSummaryStats(String period) {
-    if (_summaryCache.containsKey(period)) {
-      return _summaryCache[period]!;
-    }
-    final summary = _computeSummaryStats(period);
-    _summaryCache[period] = summary;
-    return summary;
+  /// Returns trades for a specific calendar date (DateTime)
+  List<Trade> getTradesForDay(DateTime day) {
+    return trades.where((t) =>
+        t.date.year == day.year &&
+        t.date.month == day.month &&
+        t.date.day == day.day).toList();
   }
 
-  PeriodSummary _computeSummaryStats(String period) {
+  /// Summary statistics calculation for 'all', '30', or '7' days
+  PeriodSummary getSummaryStats(String period) {
     final activeTrades = trades;
     List<Trade> filtered;
     final now = DateTime.now();
 
-    if (period == '7') {
-      final cutoff = now.subtract(const Duration(days: 7));
-      filtered = activeTrades.where((t) => t.date.isAfter(cutoff)).toList();
-    } else if (period == '30') {
-      final cutoff = now.subtract(const Duration(days: 30));
-      filtered = activeTrades.where((t) => t.date.isAfter(cutoff)).toList();
+    final initialCap = activeAccount.initialCapital;
+    double startingEquity = initialCap;
+
+    if (period == '30') {
+      final threshold = now.subtract(const Duration(days: 30));
+      filtered = activeTrades.where((t) => t.date.isAfter(threshold)).toList();
+      final prior = activeTrades.where((t) => !t.date.isAfter(threshold)).toList();
+      startingEquity = initialCap + prior.fold<double>(0.0, (sum, t) => sum + t.pl);
+    } else if (period == '7') {
+      final threshold = now.subtract(const Duration(days: 7));
+      filtered = activeTrades.where((t) => t.date.isAfter(threshold)).toList();
+      final prior = activeTrades.where((t) => !t.date.isAfter(threshold)).toList();
+      startingEquity = initialCap + prior.fold<double>(0.0, (sum, t) => sum + t.pl);
     } else {
       filtered = List.from(activeTrades);
     }
 
-    final total = filtered.length;
-    if (total == 0) {
+    if (filtered.isEmpty) {
       return PeriodSummary(
         totalTrades: 0,
         winCount: 0,
@@ -508,162 +612,116 @@ class TradeProvider extends ChangeNotifier {
         actualRR: null,
         streakCount: 0,
         streakType: '-',
-        equityPoints: [activeAccount.initialCapital],
+        equityPoints: [startingEquity],
         symbolStats: [],
-        trades: [],
-        setupStats: [],
-        emotionStats: [],
+        trades: const [],
       );
     }
 
-    int wins = 0;
-    int loses = 0;
-    int bes = 0;
-    double grossP = 0.0;
-    double grossL = 0.0;
-    double best = filtered.first.pl;
-    double worst = filtered.first.pl;
+    final n = filtered.length;
+    final wins = filtered.where((t) => t.result == TradeResult.win).toList();
+    final loses = filtered.where((t) => t.result == TradeResult.lose).toList();
+    final beCount = n - wins.length - loses.length;
 
-    double totalPlannedRR = 0.0;
-    int plannedRRCount = 0;
+    final grossProfit = wins.fold<double>(0.0, (sum, t) => sum + t.pl);
+    final grossLoss = loses.fold<double>(0.0, (sum, t) => sum + t.pl);
+    final netProfit = grossProfit + grossLoss;
 
+    final double? profitFactor = grossLoss != 0
+        ? (grossProfit / grossLoss.abs())
+        : (grossProfit > 0 ? double.infinity : null);
+
+    final winRate = n > 0 ? wins.length / n : 0.0;
+    final avgWin = wins.isNotEmpty ? grossProfit / wins.length : 0.0;
+    final avgLoss = loses.isNotEmpty ? grossLoss / loses.length : 0.0;
+    final expectancy = n > 0 ? netProfit / n : 0.0;
+
+    final pls = filtered.map((t) => t.pl).toList();
+    final bestTrade = pls.reduce(max);
+    final worstTrade = pls.reduce(min);
+
+    // Equity points & Max Drawdown
+    final equityPoints = <double>[startingEquity];
+    double eq = startingEquity;
     for (final t in filtered) {
-      if (t.pl > 0) {
-        wins++;
-        grossP += t.pl;
-      } else if (t.pl < 0) {
-        loses++;
-        grossL += t.pl.abs();
-      } else {
-        bes++;
-      }
-
-      if (t.pl > best) best = t.pl;
-      if (t.pl < worst) worst = t.pl;
-
-      final rr = t.riskRewardRatio;
-      if (rr != null && rr > 0) {
-        totalPlannedRR += rr;
-        plannedRRCount++;
-      }
+      eq += t.pl;
+      equityPoints.add(eq);
     }
 
-    final winRate = total > 0 ? wins / total : 0.0;
-    final netP = grossP - grossL;
-    final profitFactor = grossL > 0 ? grossP / grossL : (grossP > 0 ? null : 0.0);
-    final avgWin = wins > 0 ? grossP / wins : 0.0;
-    final avgLoss = loses > 0 ? grossL / loses : 0.0;
-    final expectancy = total > 0 ? (grossP - grossL) / total : 0.0;
-    final actualRR = avgLoss > 0 ? avgWin / avgLoss : null;
-    final avgRR = plannedRRCount > 0 ? totalPlannedRR / plannedRRCount : 0.0;
-
-    // Equity Curve & Max Drawdown
-    double peak = activeAccount.initialCapital;
+    double peak = equityPoints[0];
+    double maxDD = 0.0;
     double maxDDAmount = 0.0;
-    double maxDDPct = 0.0;
-    double runningEq = activeAccount.initialCapital;
-    final eqPoints = <double>[runningEq];
-
-    for (final t in filtered) {
-      runningEq += t.pl;
-      eqPoints.add(runningEq);
-
-      if (runningEq > peak) {
-        peak = runningEq;
-      } else if (peak > 0) {
-        final ddAmt = peak - runningEq;
-        final ddPct = ddAmt / peak;
-        if (ddAmt > maxDDAmount) maxDDAmount = ddAmt;
-        if (ddPct > maxDDPct) maxDDPct = ddPct;
+    for (final v in equityPoints) {
+      if (v > peak) peak = v;
+      final nominalDD = peak - v;
+      if (nominalDD > maxDDAmount) maxDDAmount = nominalDD;
+      if (peak > 0) {
+        final dd = (peak - v) / peak;
+        if (dd > maxDD) maxDD = dd;
       }
     }
 
-    // Win/Lose Streaks
-    int currentStreak = 0;
+    // Average Planned Risk:Reward
+    final rrList = filtered
+        .map((t) => t.riskRewardRatio)
+        .where((r) => r != null && r > 0)
+        .map((r) => r!)
+        .toList();
+    final avgRR = rrList.isNotEmpty
+        ? rrList.reduce((a, b) => a + b) / rrList.length
+        : 0.0;
+
+    // Actual Realized Payoff Ratio (Avg Win / Avg Loss)
+    final double? actualRR = avgLoss.abs() > 0 ? (avgWin / avgLoss.abs()) : null;
+
+    // Current Streak
+    int streakCount = 0;
     String streakType = '-';
-    if (filtered.isNotEmpty) {
-      final lastTrade = filtered.last;
-      if (lastTrade.result == TradeResult.win) {
-        streakType = 'WIN';
-      } else if (lastTrade.result == TradeResult.lose) {
-        streakType = 'LOSE';
+    for (int i = filtered.length - 1; i >= 0; i--) {
+      final res = filtered[i].result;
+      if (res == TradeResult.be) break;
+      final currentType = res == TradeResult.win ? 'WIN' : 'LOSE';
+      if (streakType == '-') {
+        streakType = currentType;
       }
-
-      if (streakType != '-') {
-        for (int i = filtered.length - 1; i >= 0; i--) {
-          final t = filtered[i];
-          if ((streakType == 'WIN' && t.result == TradeResult.win) ||
-              (streakType == 'LOSE' && t.result == TradeResult.lose)) {
-            currentStreak++;
-          } else {
-            break;
-          }
-        }
-      }
+      if (streakType != currentType) break;
+      streakCount++;
     }
 
-    // Symbol Breakdown
-    final Map<String, List<Trade>> symMap = {};
-    for (final t in filtered) {
-      symMap.putIfAbsent(t.sym, () => []).add(t);
-    }
+    // Per Symbol Breakdown
+    final uniqueSymbols = filtered.map((t) => t.sym).toSet().toList();
     final List<SymbolStat> symStats = [];
-    for (final entry in symMap.entries) {
-      final tradesForSym = entry.value;
-      final winC = tradesForSym.where((t) => t.result == TradeResult.win).length;
-      final plSum = tradesForSym.fold<double>(0.0, (acc, t) => acc + t.pl);
+    for (final s in uniqueSymbols) {
+      final symTrades = filtered.where((t) => t.sym == s).toList();
+      final winC = symTrades.where((t) => t.result == TradeResult.win).length;
+      final totalP = symTrades.fold<double>(0.0, (acc, t) => acc + t.pl);
       symStats.add(SymbolStat(
-        symbol: entry.key,
-        count: tradesForSym.length,
+        symbol: s,
+        count: symTrades.length,
         winCount: winC,
-        totalPL: plSum,
+        totalPL: totalP,
       ));
     }
     symStats.sort((a, b) => b.totalPL.compareTo(a.totalPL));
 
-    // Recognized Tag Sets to prevent arbitrary notes from corrupting analytics
-    const recognizedSetups = {
-      'BOS', 'CHOCH', 'FVG', 'Liquidity', 'Supply/Demand', 'Trendline', 'S&R', 'News', 'Fibonacci'
-    };
-    const recognizedEmotions = {
-      'Disiplin', 'FOMO', 'Revenge Trade', 'Overlot', 'Sabar', 'Greedy', 'Hesitant', 'Plan Executed', 'Early Exit'
-    };
-
-    final Map<String, List<Trade>> setupMap = {};
-    final Map<String, List<Trade>> emotionMap = {};
-
+    // Total Pips
+    double totalPips = 0.0;
     for (final t in filtered) {
-      // 1. Check t.tags
-      if (t.tags != null && t.tags!.isNotEmpty) {
-        final tags = t.tags!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
-        for (final tag in tags) {
-          if (recognizedSetups.contains(tag)) {
-            setupMap.putIfAbsent(tag, () => []).add(t);
-          } else if (recognizedEmotions.contains(tag)) {
-            emotionMap.putIfAbsent(tag, () => []).add(t);
-          } else {
-            setupMap.putIfAbsent(tag, () => []).add(t);
-          }
-        }
-      } else {
-        // Fallback for legacy trades: only extract exact recognized tags
-        if (t.why != null && t.why!.isNotEmpty) {
-          for (final tag in recognizedSetups) {
-            if (t.why!.contains(tag)) {
-              setupMap.putIfAbsent(tag, () => []).add(t);
-            }
-          }
-        }
-        if (t.note != null && t.note!.isNotEmpty) {
-          for (final tag in recognizedEmotions) {
-            if (t.note!.contains(tag)) {
-              emotionMap.putIfAbsent(tag, () => []).add(t);
-            }
-          }
-        }
+      if (t.pipsGained != null) {
+        totalPips += t.pipsGained!;
       }
     }
 
+    // Setup Tags Breakdown
+    final Map<String, List<Trade>> setupMap = {};
+    for (final t in filtered) {
+      if (t.why != null && t.why!.isNotEmpty) {
+        final tags = t.why!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+        for (final tag in tags) {
+          setupMap.putIfAbsent(tag, () => []).add(t);
+        }
+      }
+    }
     final List<TagStat> setupStats = [];
     for (final entry in setupMap.entries) {
       final tradesForTag = entry.value;
@@ -678,6 +736,16 @@ class TradeProvider extends ChangeNotifier {
     }
     setupStats.sort((a, b) => b.totalPL.compareTo(a.totalPL));
 
+    // Emotion Tags Breakdown
+    final Map<String, List<Trade>> emotionMap = {};
+    for (final t in filtered) {
+      if (t.note != null && t.note!.isNotEmpty) {
+        final tags = t.note!.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+        for (final tag in tags) {
+          emotionMap.putIfAbsent(tag, () => []).add(t);
+        }
+      }
+    }
     final List<TagStat> emotionStats = [];
     for (final entry in emotionMap.entries) {
       final tradesForTag = entry.value;
@@ -693,41 +761,32 @@ class TradeProvider extends ChangeNotifier {
     emotionStats.sort((a, b) => b.totalPL.compareTo(a.totalPL));
 
     return PeriodSummary(
-      totalTrades: total,
-      winCount: wins,
-      loseCount: loses,
-      beCount: bes,
+      totalTrades: n,
+      winCount: wins.length,
+      loseCount: loses.length,
+      beCount: beCount,
       winRate: winRate,
-      grossProfit: grossP,
-      grossLoss: grossL,
-      netProfit: netP,
+      grossProfit: grossProfit,
+      grossLoss: grossLoss,
+      netProfit: netProfit,
       profitFactor: profitFactor,
       avgWin: avgWin,
       avgLoss: avgLoss,
       expectancy: expectancy,
-      bestTrade: best,
-      worstTrade: worst,
-      maxDrawdown: maxDDPct,
+      bestTrade: bestTrade,
+      worstTrade: worstTrade,
+      maxDrawdown: maxDD,
       maxDrawdownAmount: maxDDAmount,
       avgRR: avgRR,
       actualRR: actualRR,
-      streakCount: currentStreak,
+      streakCount: streakCount,
       streakType: streakType,
-      equityPoints: eqPoints,
+      equityPoints: equityPoints,
       symbolStats: symStats,
       trades: filtered,
+      totalPipsGained: totalPips,
       setupStats: setupStats,
       emotionStats: emotionStats,
     );
-  }
-
-  void _safeDeleteFile(String? path) {
-    if (path == null || path.isEmpty) return;
-    try {
-      final file = File(path);
-      if (file.existsSync()) {
-        file.deleteSync();
-      }
-    } catch (_) {}
   }
 }

@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../models/trading_account.dart';
@@ -19,7 +21,19 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  int _selectedCategoryIndex = 0; // 0: Profil, 1: Akun, 2: Keamanan, 3: Tampilan, 4: Simbol, 5: Data
+  // -1 = menu utama. 0: Modal & Kurs, 1: Akun, 2: Keamanan, 3: Tampilan,
+  // 4: Simbol, 5: Data, 6: Preferensi
+  int _selectedCategoryIndex = -1;
+
+  static const Map<int, String> _categoryTitleKeys = {
+    0: 'cat_profile',
+    1: 'cat_accounts',
+    2: 'cat_security',
+    3: 'cat_appearance',
+    4: 'cat_symbols',
+    5: 'cat_data',
+    6: 'cat_prefs',
+  };
 
   static const List<Map<String, String>> _accountCurrencies = [
     {'code': 'USD', 'symbol': '\$', 'name': 'US Dollar'},
@@ -49,6 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _capController = TextEditingController();
   final _fxController = TextEditingController();
   final _newSymbolController = TextEditingController();
+  final _lotController = TextEditingController();
 
   String _formatRate(double rate) {
     if (rate >= 100) {
@@ -74,7 +89,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final provider = context.read<TradeProvider>();
     final settings = provider.settings;
     _capController.text = provider.activeAccount.initialCapital.toStringAsFixed(0);
-    _fxController.text = _formatRate(settings.exchangeRate);
+    _fxController.text = _formatRate(settings.usdToIdrRate);
+    _lotController.text =
+        settings.defaultLot > 0 ? settings.defaultLot.toString() : '';
+  }
+
+  Future<void> _syncRate(String lang) async {
+    final provider = context.read<TradeProvider>();
+    final newRate = await provider.syncExchangeRate();
+    if (!mounted) return;
+    if (newRate != null) {
+      _fxController.text = _formatRate(newRate);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Text(
+            AppStrings.tr(
+              'rate_synced',
+              lang,
+              params: {
+                'base': provider.activeAccount.currency,
+                'target': provider.settings.exchangeCurrency,
+                'rate': _formatRate(newRate),
+              },
+            ),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Text(AppStrings.tr('rate_sync_failed', lang)),
+        ),
+      );
+    }
   }
 
   @override
@@ -82,6 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _capController.dispose();
     _fxController.dispose();
     _newSymbolController.dispose();
+    _lotController.dispose();
     super.dispose();
   }
 
@@ -98,10 +155,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final fx = double.tryParse(_fxController.text.trim());
     if (fx != null && fx > 0) {
       final provider = context.read<TradeProvider>();
-      provider.updateExchangeRate(fx);
+      provider.updateSettings(provider.settings.copyWith(usdToIdrRate: fx));
     }
   }
-
 
   void _setTheme(ThemeMode mode) {
     final provider = context.read<TradeProvider>();
@@ -191,6 +247,124 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Full backup (trades + screenshots + accounts + settings) as one ZIP.
+  Future<void> _backupToGoogleDrive(String lang) async {
+    final provider = context.read<TradeProvider>();
+
+    provider.setSystemPickerActive(true);
+    try {
+      final nowStr = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+      final fileName = 'TraderLog_Backup_$nowStr.zip';
+
+      await BackupService.exportBackup(
+        trades: provider.allTrades,
+        settings: provider.settings,
+        fileName: fileName,
+        shareText: 'TraderLog Backup',
+      );
+
+      await provider.recordCloudBackup();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.primary,
+            content: Text(AppStrings.tr('backup_zip_ready', lang)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppStrings.tr('backup_zip_failed', lang)}: $e')),
+        );
+      }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
+    }
+  }
+
+  /// Restores everything from a ZIP created by [_backupToGoogleDrive].
+  Future<void> _restoreFromZip(String lang) async {
+    final provider = context.read<TradeProvider>();
+    provider.setSystemPickerActive(true);
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+      if (picked == null || picked.files.single.path == null) return;
+
+      final bytes = await File(picked.files.single.path!).readAsBytes();
+      final opened = BackupService.open(bytes);
+      final preview = opened.preview;
+
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(AppStrings.tr('restore_zip_title', lang)),
+          content: Text(
+            AppStrings.tr('restore_zip_confirm', lang, params: {
+              'trades': '${preview.tradeCount}',
+              'accounts': '${preview.accountCount}',
+              'images': '${preview.imageCount}',
+              'date': preview.createdAt == null
+                  ? '-'
+                  : DateFormat('d MMM yyyy, HH:mm').format(preview.createdAt!),
+            }),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(AppStrings.tr('cancel', lang)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(
+                AppStrings.tr('restore_zip_action', lang),
+                style: const TextStyle(color: AppColors.lose),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final data = await opened.materialize(appDir);
+      await provider.restoreBackup(data);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.primary,
+            content: Text(AppStrings.tr('restore_zip_done', lang, params: {
+              'trades': '${data.trades.length}',
+            })),
+          ),
+        );
+      }
+    } on BackupException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppStrings.tr('restore_zip_failed', lang)}: $e')),
+        );
+      }
+    } finally {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        provider.setSystemPickerActive(false);
+      });
+    }
+  }
+
   Future<void> _importCSV(String lang) async {
     final provider = context.read<TradeProvider>();
     provider.setSystemPickerActive(true);
@@ -209,11 +383,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final parseResult = CSVService.parseCSV(
         content,
         existingTrades: provider.trades,
-        defaultAccountId: provider.activeAccount.id,
       );
 
       if (!mounted) return;
-
 
       if (parseResult.trades.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -332,110 +504,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _exportFullBackup(String lang) async {
-    final provider = context.read<TradeProvider>();
-    provider.setSystemPickerActive(true);
-    try {
-      await BackupService.exportFullBackup(
-        shareText: 'TraderLog Full Backup (.zip)',
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.lose,
-            content: Text('Gagal mengekspor arsip cadangan: $e'),
-          ),
-        );
-      }
-    } finally {
-      Future.delayed(const Duration(milliseconds: 600), () {
-        provider.setSystemPickerActive(false);
-      });
-    }
-  }
-
-  Future<void> _restoreFullBackup(String lang) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(AppStrings.tr('restore_confirm_title', lang)),
-        content: Text(AppStrings.tr('restore_confirm_body', lang)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(AppStrings.tr('cancel', lang)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true || !mounted) return;
-
-    final provider = context.read<TradeProvider>();
-    provider.setSystemPickerActive(true);
-
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final res = await BackupService.restoreFullBackup(result.files.single.path!);
-        if (mounted) {
-          if (res.success) {
-            await provider.loadData();
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: AppColors.primary,
-                content: Text(
-                  AppStrings.tr('restore_success', lang, params: {
-                    'count': res.restoredImagesCount.toString(),
-                  }),
-                ),
-              ),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: AppColors.lose,
-                content: Text(
-                  res.message ??
-                      AppStrings.tr('restore_failed', lang, params: {'error': ''}),
-                ),
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.lose,
-            content: Text(
-              AppStrings.tr('restore_failed', lang, params: {'error': e.toString()}),
-            ),
-          ),
-        );
-      }
-    } finally {
-      Future.delayed(const Duration(milliseconds: 600), () {
-        provider.setSystemPickerActive(false);
-      });
-    }
-  }
-
   void _confirmResetTrades(String lang) {
     showDialog(
       context: context,
@@ -473,7 +541,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _confirmDisablePin(String lang) {
     final currentPinCtrl = TextEditingController();
-    final expectedPin = context.read<TradeProvider>().settings.pinCode;
 
     showDialog(
       context: context,
@@ -515,7 +582,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
-                if (currentPinCtrl.text.trim() == expectedPin) {
+                if (context.read<TradeProvider>().verifyPin(currentPinCtrl.text.trim())) {
                   context.read<TradeProvider>().setPinCode(null);
                   Navigator.of(ctx).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -543,7 +610,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final curPinCtrl = TextEditingController();
     final pin1Ctrl = TextEditingController();
     final pin2Ctrl = TextEditingController();
-    final currentExpected = context.read<TradeProvider>().settings.pinCode;
+    final hasCurrentPin = context.read<TradeProvider>().settings.isPinSet;
 
     showDialog(
       context: context,
@@ -554,7 +621,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isChanging && currentExpected != null) ...[
+                if (isChanging && hasCurrentPin) ...[
                   TextField(
                     controller: curPinCtrl,
                     keyboardType: TextInputType.number,
@@ -602,8 +669,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
-                if (isChanging && currentExpected != null) {
-                  if (curPinCtrl.text.trim() != currentExpected) {
+                if (isChanging && hasCurrentPin) {
+                  if (!context.read<TradeProvider>().verifyPin(curPinCtrl.text.trim())) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(lang == 'en' ? 'Current PIN is incorrect' : 'PIN saat ini salah')),
                     );
@@ -738,82 +805,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final lang = settings.languageCode;
     final activeAcc = tradeProvider.activeAccount;
 
-    final categories = [
-      {'icon': Icons.tune_rounded, 'label': AppStrings.tr('cat_profile', lang)},
-      {'icon': Icons.account_balance_wallet_outlined, 'label': AppStrings.tr('cat_accounts', lang)},
-      {'icon': Icons.lock_outline_rounded, 'label': AppStrings.tr('cat_security', lang)},
-      {'icon': Icons.palette_outlined, 'label': AppStrings.tr('cat_appearance', lang)},
-      {'icon': Icons.candlestick_chart_outlined, 'label': AppStrings.tr('cat_symbols', lang)},
-      {'icon': Icons.cloud_sync_outlined, 'label': AppStrings.tr('cat_data', lang)},
-    ];
+    final inMenu = _selectedCategoryIndex == -1;
 
-    return Scaffold(
+    return PopScope(
+      canPop: inMenu,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _selectedCategoryIndex = -1);
+      },
+      child: Scaffold(
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(14, 16, 14, 120),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
-            // Top Scrollable Category Tabs Bar
-            Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: softColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor),
-              ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(categories.length, (idx) {
-                    final cat = categories[idx];
-                    final isSelected = _selectedCategoryIndex == idx;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedCategoryIndex = idx),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected ? cardColor : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.12),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              cat['icon'] as IconData,
-                              size: 16,
-                              color: isSelected ? AppColors.primary : mutedColor,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              cat['label'] as String,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isSelected
-                                    ? FontWeight.w800
-                                    : FontWeight.w600,
-                                color: isSelected ? textColor : mutedColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ),
+            if (inMenu)
+              ..._buildMenu(tradeProvider, lang)
+            else
+              _buildDetailHeader(lang),
 
             // Category 0: Modal & Kurs
             if (_selectedCategoryIndex == 0)
@@ -916,17 +924,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Nilai Kurs Header
-                  _buildLabel(
-                    AppStrings.tr(
-                      'exchange_rate_label',
-                      lang,
-                      params: {
-                        'target': settings.exchangeCurrency,
-                        'base': activeAcc.currency,
-                      },
-                    ),
-                    mutedColor,
+                  // Nilai Kurs Header + Sinkronkan Kurs Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: _buildLabel(
+                          AppStrings.tr(
+                            'exchange_rate_label',
+                            lang,
+                            params: {
+                              'target': settings.exchangeCurrency,
+                              'base': activeAcc.currency,
+                            },
+                          ),
+                          mutedColor,
+                        ),
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: tradeProvider.isSyncingRate
+                            ? null
+                            : () => _syncRate(lang),
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: 8,
+                            right: 4,
+                            bottom: 6,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (tradeProvider.isSyncingRate)
+                                const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              else
+                                const Icon(
+                                  Icons.sync_rounded,
+                                  size: 14,
+                                  color: AppColors.primary,
+                                ),
+                              const SizedBox(width: 4),
+                              Text(
+                                AppStrings.tr(
+                                  tradeProvider.isSyncingRate
+                                      ? 'syncing_rate'
+                                      : 'sync_rate',
+                                  lang,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   TextField(
                     controller: _fxController,
@@ -940,7 +1002,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: _inputDecoration(
                       softColor,
                       borderColor,
-                      '16000',
+                      '17998',
+                    ).copyWith(
+                      suffixIcon: IconButton(
+                        icon: tradeProvider.isSyncingRate
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.primary,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.sync_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                        tooltip: AppStrings.tr('sync_rate', lang),
+                        onPressed: tradeProvider.isSyncingRate
+                            ? null
+                            : () => _syncRate(lang),
+                      ),
                     ),
                     onSubmitted: (_) => _saveFx(),
                     onChanged: (_) => _saveFx(),
@@ -948,7 +1031,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      'Preview: 1,000 ${settings.accountCurrency} = ${Formatters.formatAmount(1000.0 * settings.exchangeRate, currency: settings.exchangeCurrency)}',
+                      'Preview: 1,000 ${settings.accountCurrency} = ${Formatters.formatAmount(1000.0 * settings.usdToIdrRate, currency: settings.exchangeCurrency)}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -958,7 +1041,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-
 
             // Category 1: Multi-Akun
             if (_selectedCategoryIndex == 1)
@@ -1401,10 +1483,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
 
-            // Category 5: Cadangan & Pemulihan (Backup & Restore)
+            // Category 5: Data & Cloud (Google Drive)
             if (_selectedCategoryIndex == 5)
               Column(
                 children: [
+                  // Google Drive Cloud Backup Card
                   _buildCard(
                     cardColor,
                     borderColor,
@@ -1412,19 +1495,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     [
                       Row(
                         children: [
-                          const Icon(Icons.archive_outlined, color: AppColors.primary, size: 24),
+                          const Icon(Icons.cloud_upload_outlined, color: AppColors.primary, size: 24),
                           const SizedBox(width: 10),
                           Text(
-                            lang == 'en' ? 'Full Backup & Restore' : 'Cadangan & Pemulihan Lengkap',
+                            AppStrings.tr('cloud_backup_title', lang),
                             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: textColor),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        lang == 'en'
-                            ? 'Create an all-inclusive archive (.zip) containing all accounts, trades, settings, and chart screenshots, or restore from a previous backup.'
-                            : 'Buat arsip lengkap (.zip) berisi seluruh akun, catatan trade, pengaturan, dan screenshot chart, atau pulihkan dari cadangan sebelumnya.',
+                        AppStrings.tr('cloud_backup_sub', lang),
                         style: TextStyle(fontSize: 12.5, color: mutedColor),
                       ),
                       if (settings.lastBackupDate != null && settings.lastBackupDate!.isNotEmpty) ...[
@@ -1439,53 +1520,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                       const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.archive_outlined, size: 18),
-                              label: Text(
-                                AppStrings.tr('export_zip', lang),
-                                style: const TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              onPressed: () => _exportFullBackup(lang),
-                            ),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.add_to_drive_rounded, size: 18),
+                          label: Text(AppStrings.tr('backup_google_drive', lang)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.unarchive_outlined, size: 18, color: AppColors.primary),
-                              label: Text(
-                                AppStrings.tr('restore_zip', lang),
-                                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                side: BorderSide(color: AppColors.primary.withOpacity(0.5)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              onPressed: () => _restoreFullBackup(lang),
-                            ),
-                          ),
-                        ],
+                          onPressed: () => _backupToGoogleDrive(lang),
+                        ),
                       ),
-                      const SizedBox(height: 20),
-                      Divider(color: borderColor, height: 1),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.settings_backup_restore_rounded, size: 18),
+                          label: Text(AppStrings.tr('restore_zip_button', lang)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: BorderSide(color: borderColor),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => _restoreFromZip(lang),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: softColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppStrings.tr('backup_guide_title', lang),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textColor),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(AppStrings.tr('backup_step_1', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
+                            Text(AppStrings.tr('backup_step_2', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
+                            Text(AppStrings.tr('backup_step_3', lang), style: TextStyle(fontSize: 11.5, color: mutedColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
 
-                      // CSV Spreadsheet Section
-                      _buildLabel(
-                        lang == 'en' ? 'Spreadsheet (CSV)' : 'Lembar Kerja (CSV)',
-                        mutedColor,
-                      ),
+                  // Local CSV Backup Card
+                  _buildCard(
+                    cardColor,
+                    borderColor,
+                    isDark,
+                    [
+                      _buildLabel(AppStrings.tr('data_backup_title', lang), mutedColor),
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(bottom: 14),
                         child: Text(
                           AppStrings.tr('data_backup_sub', lang),
                           style: TextStyle(fontSize: 12.5, color: mutedColor),
@@ -1520,11 +1617,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                      Divider(color: borderColor, height: 1),
                       const SizedBox(height: 16),
-
-                      // Danger zone: Reset active account trades
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -1545,8 +1638,605 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-
+            // Category 6: Preferensi
+            if (_selectedCategoryIndex == 6) ...[
+              _buildCard(cardColor, borderColor, isDark, [
+                _prefSwitch(
+                  icon: Icons.visibility_off_outlined,
+                  title: AppStrings.tr('pref_privacy_title', lang),
+                  subtitle: AppStrings.tr('pref_privacy_sub', lang),
+                  value: settings.hideBalance,
+                  onChanged: (v) => tradeProvider.setHideBalance(v),
+                ),
+                Divider(height: 28, color: borderColor),
+                _prefSwitch(
+                  icon: Icons.vibration_rounded,
+                  title: AppStrings.tr('pref_haptic_title', lang),
+                  subtitle: AppStrings.tr('pref_haptic_sub', lang),
+                  value: settings.hapticEnabled,
+                  onChanged: (v) => tradeProvider.setHapticEnabled(v),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              _buildCard(cardColor, borderColor, isDark, [
+                _prefHeader(
+                  Icons.timer_outlined,
+                  AppStrings.tr('pref_autolock_title', lang),
+                  AppStrings.tr('pref_autolock_sub', lang),
+                ),
+                const SizedBox(height: 14),
+                _segmented<int>(
+                  enabled: settings.isPinSet,
+                  current: settings.autoLockSeconds,
+                  options: [
+                    MapEntry(0, AppStrings.tr('autolock_immediate', lang)),
+                    MapEntry(30, AppStrings.tr('autolock_30s', lang)),
+                    MapEntry(60, AppStrings.tr('autolock_1m', lang)),
+                    MapEntry(300, AppStrings.tr('autolock_5m', lang)),
+                  ],
+                  onChanged: (v) => tradeProvider.setAutoLockSeconds(v),
+                ),
+                if (!settings.isPinSet)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      AppStrings.tr('pref_autolock_need_pin', lang),
+                      style: TextStyle(fontSize: 12, color: mutedColor),
+                    ),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+              _buildCard(cardColor, borderColor, isDark, [
+                _prefHeader(
+                  Icons.calendar_month_outlined,
+                  AppStrings.tr('pref_weekstart_title', lang),
+                  null,
+                ),
+                const SizedBox(height: 14),
+                _segmented<bool>(
+                  current: settings.weekStartsMonday,
+                  options: [
+                    MapEntry(false, AppStrings.tr('week_sunday', lang)),
+                    MapEntry(true, AppStrings.tr('week_monday', lang)),
+                  ],
+                  onChanged: (v) => tradeProvider.setWeekStartsMonday(v),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              _buildCard(cardColor, borderColor, isDark, [
+                _prefHeader(
+                  Icons.tune_rounded,
+                  AppStrings.tr('pref_lot_title', lang),
+                  AppStrings.tr('pref_lot_sub', lang),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _lotController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                  decoration: _inputDecoration(softColor, borderColor, '0.01'),
+                  onChanged: (txt) {
+                    final v =
+                        double.tryParse(txt.trim().replaceAll(',', '.')) ?? 0.0;
+                    tradeProvider.setDefaultLot(v);
+                  },
+                ),
+              ]),
+            ],
           ],
+        ),
+      ),
+    ),
+    );
+  }
+
+
+  // ───────────────────────── Modern menu & helpers ─────────────────────────
+
+  void _tap() {
+    if (context.read<TradeProvider>().settings.hapticEnabled) {
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  void _openCategory(int idx) {
+    _tap();
+    setState(() => _selectedCategoryIndex = idx);
+  }
+
+  void _showEditNameDialog(String lang) {
+    final provider = context.read<TradeProvider>();
+    final ctrl = TextEditingController(text: provider.settings.traderName);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(lang == 'en' ? 'Your Name' : 'Nama Anda'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 24,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(counterText: ''),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(AppStrings.tr('cancel', lang)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              final n = ctrl.text.trim();
+              if (n.isNotEmpty) provider.updateTraderName(n);
+              Navigator.of(ctx).pop();
+            },
+            child: Text(AppStrings.tr('save_changes', lang)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildMenu(TradeProvider tp, String lang) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+    final settings = tp.settings;
+    final acc = tp.activeAccount;
+    final name = settings.traderName.trim();
+    final initial = name.isEmpty ? 'T' : name.substring(0, 1).toUpperCase();
+    final themeKey = settings.themeMode == ThemeMode.dark
+        ? 'theme_dark'
+        : settings.themeMode == ThemeMode.light
+            ? 'theme_light'
+            : 'theme_system';
+
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
+        child: Text(
+          AppStrings.tr('nav_settings', lang),
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: textColor,
+          ),
+        ),
+      ),
+
+      // Profile card
+      Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor),
+        ),
+        child: Material(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _showEditNameDialog(lang),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name.isEmpty ? 'TraderLog' : name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${acc.name} · ${acc.typeLabel}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12.5, color: mutedColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.edit_outlined, size: 18, color: mutedColor),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 22),
+
+      _menuGroup(AppStrings.tr('group_general', lang), [
+        _menuTile(
+          icon: Icons.account_balance_outlined,
+          color: AppColors.primary,
+          title: AppStrings.tr('cat_profile', lang),
+          subtitle: AppStrings.tr('menu_capital_sub', lang),
+          index: 0,
+        ),
+        _menuTile(
+          icon: Icons.account_balance_wallet_outlined,
+          color: const Color(0xFF6366F1),
+          title: AppStrings.tr('cat_accounts', lang),
+          subtitle: AppStrings.tr('menu_accounts_sub', lang, params: {
+            'n': settings.accounts.length.toString(),
+            'name': acc.name,
+          }),
+          index: 1,
+        ),
+        _menuTile(
+          icon: Icons.candlestick_chart_outlined,
+          color: const Color(0xFF0EA5E9),
+          title: AppStrings.tr('cat_symbols', lang),
+          subtitle: AppStrings.tr('menu_symbols_sub', lang,
+              params: {'n': settings.symbols.length.toString()}),
+          index: 4,
+        ),
+      ]),
+
+      _menuGroup(AppStrings.tr('group_personal', lang), [
+        _menuTile(
+          icon: Icons.palette_outlined,
+          color: const Color(0xFFEC4899),
+          title: AppStrings.tr('cat_appearance', lang),
+          subtitle: AppStrings.tr('menu_appearance_sub', lang, params: {
+            'lang': lang == 'en' ? 'English' : 'Indonesia',
+            'theme': AppStrings.tr(themeKey, lang),
+          }),
+          index: 3,
+        ),
+        _menuTile(
+          icon: Icons.tune_rounded,
+          color: const Color(0xFFF59E0B),
+          title: AppStrings.tr('cat_prefs', lang),
+          subtitle: AppStrings.tr('menu_prefs_sub', lang),
+          index: 6,
+        ),
+      ]),
+
+      _menuGroup(AppStrings.tr('group_privacy_data', lang), [
+        _menuTile(
+          icon: Icons.lock_outline_rounded,
+          color: AppColors.lose,
+          title: AppStrings.tr('cat_security', lang),
+          subtitle: AppStrings.tr(
+              settings.isPinSet ? 'menu_security_on' : 'menu_security_off',
+              lang),
+          index: 2,
+        ),
+        _menuTile(
+          icon: Icons.cloud_sync_outlined,
+          color: const Color(0xFF14B8A6),
+          title: AppStrings.tr('cat_data', lang),
+          subtitle: AppStrings.tr('menu_data_sub', lang),
+          index: 5,
+        ),
+      ]),
+    ];
+  }
+
+  Widget _menuGroup(String label, List<Widget> tiles) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+    final rows = <Widget>[];
+    for (int i = 0; i < tiles.length; i++) {
+      rows.add(tiles[i]);
+      if (i != tiles.length - 1) {
+        rows.add(Divider(height: 1, indent: 64, color: borderColor));
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.9,
+                color: mutedColor,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: borderColor),
+            ),
+            child: Material(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: Column(children: rows),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _menuTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required int index,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+    return InkWell(
+      onTap: () => _openCategory(index),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: mutedColor),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: mutedColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailHeader(String lang) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final title =
+        AppStrings.tr(_categoryTitleKeys[_selectedCategoryIndex] ?? 'nav_settings', lang);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              _tap();
+              setState(() => _selectedCategoryIndex = -1);
+            },
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
+              ),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  size: 16, color: textColor),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+                color: textColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _prefHeader(IconData icon, String title, String? subtitle) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.14),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Icon(icon, size: 19, color: AppColors.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12, height: 1.35, color: mutedColor),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _prefSwitch({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      children: [
+        Expanded(child: _prefHeader(icon, title, subtitle)),
+        const SizedBox(width: 8),
+        Switch(
+          value: value,
+          activeColor: AppColors.primary,
+          onChanged: (v) {
+            if (context.read<TradeProvider>().settings.hapticEnabled) {
+              HapticFeedback.selectionClick();
+            }
+            onChanged(v);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _segmented<T>({
+    required List<MapEntry<T, String>> options,
+    required T current,
+    required ValueChanged<T> onChanged,
+    bool enabled = true,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final softColor = isDark ? AppColors.darkSoft : AppColors.lightSoft;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final mutedColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.45,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: softColor,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          children: options.map((opt) {
+            final selected = opt.key == current;
+            return Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: enabled
+                    ? () {
+                        _tap();
+                        onChanged(opt.key);
+                      }
+                    : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? cardColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.10),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    opt.value,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? textColor : mutedColor,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
@@ -1558,15 +2248,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

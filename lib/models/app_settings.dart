@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import '../utils/pin_hasher.dart';
 import 'trading_account.dart';
 
 class AppSettings {
@@ -9,19 +9,24 @@ class AppSettings {
   final String accountCurrency;
   final String exchangeCurrency;
   final double initialCapital;
-  static const Object _sentinel = Object();
-
-  final double exchangeRate;
-  double get usdToIdrRate => exchangeRate;
+  final double usdToIdrRate;
   final ThemeMode themeMode;
   final List<String> symbols;
 
   // Multi-Account & Security
   final String activeAccountId;
   final List<TradingAccount> accounts;
-  final String? pinCode;
+  /// Salted hash of the PIN (see [PinHasher]). Never the PIN itself.
+  final String? pinHash;
   final bool isBiometricEnabled;
   final String? lastBackupDate;
+
+  // Preferences
+  final bool hideBalance; // privacy mode: mask balance & P/L
+  final bool hapticEnabled; // light vibration feedback
+  final int autoLockSeconds; // 0 = lock immediately when app goes to background
+  final bool weekStartsMonday; // calendar week start
+  final double defaultLot; // prefilled lot in new trade form (0 = off)
 
   static const List<String> defaultSymbols = [
     'XAU/USD',
@@ -41,17 +46,20 @@ class AppSettings {
     this.accountCurrency = 'USD',
     this.exchangeCurrency = 'IDR',
     this.initialCapital = 1000.0,
-    double? exchangeRate,
-    double? usdToIdrRate,
+    this.usdToIdrRate = 17998.0,
     this.themeMode = ThemeMode.system,
     List<String>? symbols,
     this.activeAccountId = 'acc_real',
     List<TradingAccount>? accounts,
-    this.pinCode,
+    this.pinHash,
     this.isBiometricEnabled = false,
     this.lastBackupDate,
-  })  : exchangeRate = exchangeRate ?? usdToIdrRate ?? 16000.0,
-        symbols = symbols ?? List.from(defaultSymbols),
+    this.hideBalance = false,
+    this.hapticEnabled = true,
+    this.autoLockSeconds = 0,
+    this.weekStartsMonday = false,
+    this.defaultLot = 0.0,
+  })  : symbols = symbols ?? List.from(defaultSymbols),
         accounts = accounts ?? TradingAccount.defaultAccounts();
 
   TradingAccount get activeAccount {
@@ -61,24 +69,10 @@ class AppSettings {
     );
   }
 
-  bool get isPinSet => pinCode != null && pinCode!.trim().isNotEmpty;
+  bool get isPinSet => pinHash != null && pinHash!.trim().isNotEmpty;
 
-  /// Generates a salted SHA-256 hash for PIN code
-  static String hashPin(String pin) {
-    const salt = 'traderlog_pin_salt_v1';
-    final bytes = utf8.encode('$salt$pin');
-    return sha256.convert(bytes).toString();
-  }
-
-  /// Verifies entered PIN against stored PIN or Hash with backward compatibility
-  static bool verifyPin(String enteredPin, String? storedPinOrHash) {
-    if (storedPinOrHash == null || storedPinOrHash.isEmpty) return false;
-    if (storedPinOrHash.length == 64 &&
-        RegExp(r'^[0-9a-fA-F]{64}$').hasMatch(storedPinOrHash)) {
-      return hashPin(enteredPin) == storedPinOrHash.toLowerCase();
-    }
-    return enteredPin == storedPinOrHash;
-  }
+  /// True when the stored PIN is still a plaintext value from an old version.
+  bool get hasLegacyPlainPin => isPinSet && !PinHasher.isHashed(pinHash);
 
   AppSettings copyWith({
     String? traderName,
@@ -87,32 +81,39 @@ class AppSettings {
     String? exchangeCurrency,
     double? initialCapital,
     double? usdToIdrRate,
-    double? exchangeRate,
     ThemeMode? themeMode,
     List<String>? symbols,
     String? activeAccountId,
     List<TradingAccount>? accounts,
-    Object? pinCode = _sentinel,
+    String? pinHash,
     bool? isBiometricEnabled,
-    Object? lastBackupDate = _sentinel,
+    String? lastBackupDate,
+    bool? hideBalance,
+    bool? hapticEnabled,
+    int? autoLockSeconds,
+    bool? weekStartsMonday,
+    double? defaultLot,
+    bool clearPin = false,
   }) {
-    final rate = exchangeRate ?? usdToIdrRate ?? this.exchangeRate;
     return AppSettings(
       traderName: traderName ?? this.traderName,
       languageCode: languageCode ?? this.languageCode,
       accountCurrency: accountCurrency ?? this.accountCurrency,
       exchangeCurrency: exchangeCurrency ?? this.exchangeCurrency,
       initialCapital: initialCapital ?? this.initialCapital,
-      exchangeRate: rate,
+      usdToIdrRate: usdToIdrRate ?? this.usdToIdrRate,
       themeMode: themeMode ?? this.themeMode,
       symbols: symbols ?? List.from(this.symbols),
       activeAccountId: activeAccountId ?? this.activeAccountId,
       accounts: accounts ?? List.from(this.accounts),
-      pinCode: identical(pinCode, _sentinel) ? this.pinCode : pinCode as String?,
+      pinHash: clearPin ? null : (pinHash ?? this.pinHash),
       isBiometricEnabled: isBiometricEnabled ?? this.isBiometricEnabled,
-      lastBackupDate: identical(lastBackupDate, _sentinel)
-          ? this.lastBackupDate
-          : lastBackupDate as String?,
+      lastBackupDate: lastBackupDate ?? this.lastBackupDate,
+      hideBalance: hideBalance ?? this.hideBalance,
+      hapticEnabled: hapticEnabled ?? this.hapticEnabled,
+      autoLockSeconds: autoLockSeconds ?? this.autoLockSeconds,
+      weekStartsMonday: weekStartsMonday ?? this.weekStartsMonday,
+      defaultLot: defaultLot ?? this.defaultLot,
     );
   }
 
@@ -123,15 +124,20 @@ class AppSettings {
       'account_currency': accountCurrency,
       'exchange_currency': exchangeCurrency,
       'initial_capital': initialCapital.toString(),
-      'usd_to_idr_rate': exchangeRate.toString(),
-      'exchange_rate': exchangeRate.toString(),
+      'usd_to_idr_rate': usdToIdrRate.toString(),
       'theme_mode': themeMode.name,
       'symbols': jsonEncode(symbols),
       'active_account_id': activeAccountId,
       'accounts': TradingAccount.encodeList(accounts),
-      'pin_code': pinCode ?? '',
+      // Key name kept for compatibility with existing databases.
+      'pin_code': pinHash ?? '',
       'is_biometric_enabled': isBiometricEnabled ? 'true' : 'false',
       'last_backup_date': lastBackupDate ?? '',
+      'hide_balance': hideBalance ? 'true' : 'false',
+      'haptic_enabled': hapticEnabled ? 'true' : 'false',
+      'auto_lock_seconds': autoLockSeconds.toString(),
+      'week_starts_monday': weekStartsMonday ? 'true' : 'false',
+      'default_lot': defaultLot.toString(),
     };
   }
 
@@ -174,15 +180,24 @@ class AppSettings {
           ? map['exchange_currency']!
           : 'IDR',
       initialCapital: double.tryParse(map['initial_capital'] ?? '') ?? 1000.0,
-      exchangeRate: double.tryParse(map['exchange_rate'] ?? map['usd_to_idr_rate'] ?? '') ?? 16000.0,
+      usdToIdrRate: double.tryParse(map['usd_to_idr_rate'] ?? '') ?? 17998.0,
       themeMode: mode,
       symbols: syms,
       activeAccountId: activeAccId,
       accounts: accounts,
-      pinCode: pin,
+      pinHash: pin,
       isBiometricEnabled: isBio,
       lastBackupDate: map['last_backup_date'],
+      hideBalance: map['hide_balance'] == 'true',
+      hapticEnabled: map['haptic_enabled'] != 'false',
+      autoLockSeconds: const [0, 30, 60, 300]
+              .contains(int.tryParse(map['auto_lock_seconds'] ?? ''))
+          ? int.parse(map['auto_lock_seconds']!)
+          : 0,
+      weekStartsMonday: map['week_starts_monday'] == 'true',
+      defaultLot: (double.tryParse(map['default_lot'] ?? '') ?? 0.0) > 0
+          ? double.parse(map['default_lot']!)
+          : 0.0,
     );
   }
 }
-

@@ -67,9 +67,23 @@ class TradingAccount {
     return const [
       TradingAccount(
         id: 'acc_real',
-        name: 'Primary Account',
+        name: 'Akun Real Utama',
         type: 'real',
         initialCapital: 1000.0,
+        currency: 'USD',
+      ),
+      TradingAccount(
+        id: 'acc_demo',
+        name: 'Akun Latihan Demo',
+        type: 'demo',
+        initialCapital: 10000.0,
+        currency: 'USD',
+      ),
+      TradingAccount(
+        id: 'acc_prop',
+        name: 'Evaluasi Prop Firm',
+        type: 'prop_firm',
+        initialCapital: 50000.0,
         currency: 'USD',
       ),
     ];

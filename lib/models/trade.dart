@@ -5,8 +5,6 @@ enum TradeSide { buy, sell }
 enum TradeResult { win, lose, be }
 
 class Trade {
-  static const Object _sentinel = Object();
-
   final String id;
   final DateTime date;
   final String sym;
@@ -19,7 +17,6 @@ class Trade {
   final double pl;
   final String? why;
   final String? note;
-  final String? tags; // Separated setup and emotion tags (e.g. "BOS, FOMO")
   final String? imagePath; // Slot 1: Sebelum Entry (Setup)
   final String? imagePathAfter; // Slot 2: Sesudah Selesai (Eksekusi / Reaksi Harga)
   final String? accountId; // Multi-Account ID
@@ -37,7 +34,6 @@ class Trade {
     required this.pl,
     this.why,
     this.note,
-    this.tags,
     this.imagePath,
     this.imagePathAfter,
     this.accountId = 'acc_real',
@@ -106,23 +102,24 @@ class Trade {
     return '-';
   }
 
-  /// Approximate pips / points gained or lost based on entry and exit (shared with PnlCalculator)
+  /// Approximate pips / points gained or lost based on entry and exit.
+  /// Returns null for symbols whose pip size is unknown (custom symbols).
   double? get pipsGained {
-    return PnlCalculator.calculatePips(
+    if (entry == null || exit == null) return null;
+    return PnlCalculator.pipsFor(
       symbol: sym,
       side: side,
-      entry: entry,
-      exit: exit,
+      entry: entry!,
+      exit: exit!,
     );
   }
 
   String get formattedPips {
-    return PnlCalculator.formatPips(
-      symbol: sym,
-      side: side,
-      entry: entry,
-      exit: exit,
-    );
+    final pips = pipsGained;
+    if (pips == null) return '';
+    final unit = PnlCalculator.unitFor(sym);
+    final prefix = pips > 0 ? '+' : '';
+    return '$prefix${pips.toStringAsFixed(1)} $unit';
   }
 
   Map<String, dynamic> toMap() {
@@ -139,7 +136,6 @@ class Trade {
       'pl': pl,
       'why': why,
       'note': note,
-      'tags': tags,
       'image_path': imagePath,
       'image_path_after': imagePathAfter,
       'account_id': accountId ?? 'acc_real',
@@ -162,7 +158,6 @@ class Trade {
       pl: (map['pl'] as num).toDouble(),
       why: map['why'] as String?,
       note: map['note'] as String?,
-      tags: map['tags'] as String?,
       imagePath: map['image_path'] as String?,
       imagePathAfter: map['image_path_after'] as String?,
       accountId: map['account_id'] as String? ?? 'acc_real',
@@ -174,17 +169,16 @@ class Trade {
     DateTime? date,
     String? sym,
     TradeSide? side,
-    Object? entry = _sentinel,
-    Object? exit = _sentinel,
-    Object? sl = _sentinel,
-    Object? tp = _sentinel,
-    Object? lot = _sentinel,
+    double? entry,
+    double? exit,
+    double? sl,
+    double? tp,
+    double? lot,
     double? pl,
-    Object? why = _sentinel,
-    Object? note = _sentinel,
-    Object? tags = _sentinel,
-    Object? imagePath = _sentinel,
-    Object? imagePathAfter = _sentinel,
+    String? why,
+    String? note,
+    String? imagePath,
+    String? imagePathAfter,
     String? accountId,
   }) {
     return Trade(
@@ -192,17 +186,16 @@ class Trade {
       date: date ?? this.date,
       sym: sym ?? this.sym,
       side: side ?? this.side,
-      entry: identical(entry, _sentinel) ? this.entry : entry as double?,
-      exit: identical(exit, _sentinel) ? this.exit : exit as double?,
-      sl: identical(sl, _sentinel) ? this.sl : sl as double?,
-      tp: identical(tp, _sentinel) ? this.tp : tp as double?,
-      lot: identical(lot, _sentinel) ? this.lot : lot as double?,
+      entry: entry ?? this.entry,
+      exit: exit ?? this.exit,
+      sl: sl ?? this.sl,
+      tp: tp ?? this.tp,
+      lot: lot ?? this.lot,
       pl: pl ?? this.pl,
-      why: identical(why, _sentinel) ? this.why : why as String?,
-      note: identical(note, _sentinel) ? this.note : note as String?,
-      tags: identical(tags, _sentinel) ? this.tags : tags as String?,
-      imagePath: identical(imagePath, _sentinel) ? this.imagePath : imagePath as String?,
-      imagePathAfter: identical(imagePathAfter, _sentinel) ? this.imagePathAfter : imagePathAfter as String?,
+      why: why ?? this.why,
+      note: note ?? this.note,
+      imagePath: imagePath ?? this.imagePath,
+      imagePathAfter: imagePathAfter ?? this.imagePathAfter,
       accountId: accountId ?? this.accountId,
     );
   }

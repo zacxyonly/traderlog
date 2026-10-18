@@ -50,13 +50,12 @@ class _TraderlogAppState extends State<TraderlogApp> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+    final provider = context.read<TradeProvider>();
     if (state == AppLifecycleState.paused) {
-      if (mounted) {
-        final provider = context.read<TradeProvider>();
-        if (!provider.isSystemPickerActive) {
-          provider.lockApp();
-        }
-      }
+      provider.onAppPaused();
+    } else if (state == AppLifecycleState.resumed) {
+      provider.onAppResumed();
     }
   }
 

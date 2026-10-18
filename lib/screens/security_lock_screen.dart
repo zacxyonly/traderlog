@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
-import '../models/app_settings.dart';
 import '../providers/trade_provider.dart';
 import '../utils/app_strings.dart';
 
@@ -16,80 +14,58 @@ class SecurityLockScreen extends StatefulWidget {
 }
 
 class _SecurityLockScreenState extends State<SecurityLockScreen> {
+  final LocalAuthentication _auth = LocalAuthentication();
   String _enteredPin = '';
   bool _hasError = false;
-  final LocalAuthentication _auth = LocalAuthentication();
-  bool _isCheckingBio = false;
-
-  int _failedAttempts = 0;
-  int _lockoutSecondsLeft = 0;
-  Timer? _lockoutTimer;
+  bool _isAuthenticating = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkBiometricOnLaunch();
+      _checkBiometric();
     });
   }
 
-  @override
-  void dispose() {
-    _lockoutTimer?.cancel();
-    super.dispose();
-  }
+  Future<void> _checkBiometric() async {
+    final provider = context.read<TradeProvider>();
+    if (!provider.settings.isBiometricEnabled) return;
 
-  Future<void> _checkBiometricOnLaunch() async {
-    final settings = context.read<TradeProvider>().settings;
-    if (settings.isBiometricEnabled && _lockoutSecondsLeft <= 0) {
-      await _authenticateBiometric();
-    }
+    try {
+      final canCheck = await _auth.canCheckBiometrics;
+      final isDeviceSupported = await _auth.isDeviceSupported();
+      if ((canCheck || isDeviceSupported) && mounted) {
+        _authenticateBiometric();
+      }
+    } catch (_) {}
   }
 
   Future<void> _authenticateBiometric() async {
-    if (_isCheckingBio || _lockoutSecondsLeft > 0) return;
-    _isCheckingBio = true;
+    if (_isAuthenticating) return;
+    setState(() => _isAuthenticating = true);
 
+    final lang = context.read<TradeProvider>().settings.languageCode;
     try {
-      final canBio = await _auth.canCheckBiometrics;
-      final isDeviceSupported = await _auth.isDeviceSupported();
-      if (!canBio || !isDeviceSupported) {
-        _isCheckingBio = false;
-        return;
-      }
-
-      if (!mounted) return;
-      final lang = context.read<TradeProvider>().settings.languageCode;
-      final localizedReason = lang == 'id'
-          ? 'Pindai sidik jari atau wajah untuk membuka TraderLog'
-          : 'Scan fingerprint or face to unlock TraderLog';
-
-      final authenticated = await _auth.authenticate(
-        localizedReason: localizedReason,
+      final didAuthenticate = await _auth.authenticate(
+        localizedReason: AppStrings.tr('biometric_prompt', lang),
         options: const AuthenticationOptions(
+          biometricOnly: false,
           stickyAuth: true,
-          biometricOnly: true,
         ),
       );
 
-      if (authenticated && mounted) {
-        _failedAttempts = 0;
-        _lockoutTimer?.cancel();
+      if (didAuthenticate && mounted) {
         context.read<TradeProvider>().unlockApp();
       }
     } catch (_) {
-      // Biometric cancelled or unavailable
     } finally {
       if (mounted) {
-        setState(() {
-          _isCheckingBio = false;
-        });
+        setState(() => _isAuthenticating = false);
       }
     }
   }
 
   void _onKeyPress(String val) {
-    if (_lockoutSecondsLeft > 0) return;
     if (_enteredPin.length >= 4) return;
 
     setState(() {
@@ -103,7 +79,6 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
   }
 
   void _onBackspace() {
-    if (_lockoutSecondsLeft > 0) return;
     if (_enteredPin.isNotEmpty) {
       setState(() {
         _hasError = false;
@@ -113,27 +88,14 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
   }
 
   void _verifyPin() {
-    if (_lockoutSecondsLeft > 0) return;
-    final expected = context.read<TradeProvider>().settings.pinCode;
-    if (AppSettings.verifyPin(_enteredPin, expected)) {
-      if (expected != null && expected.length != 64) {
-        context.read<TradeProvider>().setPinCode(_enteredPin);
-      }
-      _failedAttempts = 0;
-      _lockoutTimer?.cancel();
+    if (context.read<TradeProvider>().verifyPin(_enteredPin)) {
       HapticFeedback.lightImpact();
       context.read<TradeProvider>().unlockApp();
     } else {
       HapticFeedback.heavyImpact();
-      _failedAttempts++;
       setState(() {
         _hasError = true;
       });
-
-      if (_failedAttempts >= 5) {
-        _startLockout();
-      }
-
       Future.delayed(const Duration(milliseconds: 350), () {
         if (mounted) {
           setState(() {
@@ -143,31 +105,6 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
         }
       });
     }
-  }
-
-  void _startLockout() {
-    _lockoutTimer?.cancel();
-    setState(() {
-      _lockoutSecondsLeft = 30;
-      _enteredPin = '';
-    });
-    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (_lockoutSecondsLeft <= 1) {
-        timer.cancel();
-        setState(() {
-          _lockoutSecondsLeft = 0;
-          _failedAttempts = 0;
-        });
-      } else {
-        setState(() {
-          _lockoutSecondsLeft--;
-        });
-      }
-    });
   }
 
   @override
@@ -209,37 +146,15 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              if (_lockoutSecondsLeft > 0)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.lose.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.lose.withOpacity(0.4)),
-                  ),
-                  child: Text(
-                    lang == 'id'
-                        ? 'Terlalu banyak percobaan salah.\nCoba lagi dalam $_lockoutSecondsLeft detik.'
-                        : 'Too many incorrect attempts.\nTry again in $_lockoutSecondsLeft seconds.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.loseText,
-                    ),
-                  ),
-                )
-              else
-                Text(
-                  AppStrings.tr('enter_pin_to_unlock', lang),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.darkMuted,
-                  ),
+              Text(
+                AppStrings.tr('enter_pin_to_unlock', lang),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.darkMuted,
                 ),
-              const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 28),
 
               // PIN Indicator Dots
               Row(
@@ -318,34 +233,27 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
   }
 
   Widget _buildNumberKey(String val) {
-    final isLocked = _lockoutSecondsLeft > 0;
     return InkWell(
-      onTap: isLocked
-          ? null
-          : () {
-              HapticFeedback.selectionClick();
-              _onKeyPress(val);
-            },
+      onTap: () {
+        HapticFeedback.selectionClick();
+        _onKeyPress(val);
+      },
       borderRadius: BorderRadius.circular(32),
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 200),
-        opacity: isLocked ? 0.35 : 1.0,
-        child: Container(
-          width: 68,
-          height: 68,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF131D2D),
-            border: Border.all(color: const Color(0xFF1F2E45)),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            val,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
+      child: Container(
+        width: 68,
+        height: 68,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF131D2D),
+          border: Border.all(color: const Color(0xFF1F2E45)),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          val,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
           ),
         ),
       ),
@@ -353,28 +261,21 @@ class _SecurityLockScreenState extends State<SecurityLockScreen> {
   }
 
   Widget _buildSpecialKey({required IconData icon, required VoidCallback onTap}) {
-    final isLocked = _lockoutSecondsLeft > 0;
     return InkWell(
-      onTap: isLocked
-          ? null
-          : () {
-              HapticFeedback.selectionClick();
-              onTap();
-            },
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
       borderRadius: BorderRadius.circular(32),
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 200),
-        opacity: isLocked ? 0.35 : 1.0,
-        child: Container(
-          width: 68,
-          height: 68,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF131D2D).withOpacity(0.5),
-          ),
-          alignment: Alignment.center,
-          child: Icon(icon, color: AppColors.primary, size: 26),
+      child: Container(
+        width: 68,
+        height: 68,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF131D2D).withOpacity(0.5),
         ),
+        alignment: Alignment.center,
+        child: Icon(icon, color: AppColors.primary, size: 26),
       ),
     );
   }

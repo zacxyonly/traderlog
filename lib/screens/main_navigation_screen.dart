@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/trade_provider.dart';
@@ -131,7 +132,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _currentIndex = index),
+        onTap: () {
+          if (_currentIndex != index &&
+              context.read<TradeProvider>().settings.hapticEnabled) {
+            HapticFeedback.selectionClick();
+          }
+          setState(() => _currentIndex = index);
+        },
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),

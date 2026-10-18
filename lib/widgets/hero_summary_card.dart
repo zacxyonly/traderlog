@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/trade_provider.dart';
@@ -13,6 +14,7 @@ class HeroSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TradeProvider>();
+    final hide = provider.settings.hideBalance;
     final equity = provider.currentEquity;
     final equityIDR = provider.currentEquityIDR;
     final pl = provider.totalProfitLoss;
@@ -128,13 +130,25 @@ class HeroSummaryCard extends StatelessWidget {
                 const SizedBox(height: 4),
 
                 // Large Equity
-                Text(
-                  Formatters.formatAmount(equity, currency: activeAccount.currency),
-                  style: const TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (provider.settings.hapticEnabled) {
+                      HapticFeedback.selectionClick();
+                    }
+                    provider.setHideBalance(!hide);
+                  },
+                  child: Text(
+                    hide
+                        ? '••••••'
+                        : Formatters.formatAmount(equity,
+                            currency: activeAccount.currency),
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -144,7 +158,10 @@ class HeroSummaryCard extends StatelessWidget {
                   children: [
                     if (activeAccount.currency != provider.settings.exchangeCurrency) ...[
                       Text(
-                        Formatters.formatAmount(equityIDR, currency: provider.settings.exchangeCurrency),
+                        hide
+                            ? '••••'
+                            : Formatters.formatAmount(equityIDR,
+                                currency: provider.settings.exchangeCurrency),
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFFC5D3DE),
@@ -163,7 +180,9 @@ class HeroSummaryCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        '${Formatters.formatAmountSigned(pl, currency: activeAccount.currency)} · ${Formatters.formatPercent(plPct)}',
+                        hide
+                            ? '•••• · ••%'
+                            : '${Formatters.formatAmountSigned(pl, currency: activeAccount.currency)} · ${Formatters.formatPercent(plPct)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

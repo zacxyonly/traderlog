@@ -42,11 +42,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Keystores and sensitive credentials
+# Release signing (never commit)
+android/key.properties
 *.jks
 *.keystore
-*.jceks
-key.properties
-android/key.properties
-android/app/key.properties
-release-output/
+*.p12

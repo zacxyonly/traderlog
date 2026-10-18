@@ -1,19 +1,21 @@
 import '../models/trade.dart';
 
 class PnlResult {
-  final double pnl;
+  /// Profit/loss in the account currency (USD). `null` when it cannot be
+  /// computed reliably (e.g. a cross pair such as EUR/GBP, which needs a
+  /// live GBP->USD rate that the app does not have). In that case [pips] is
+  /// still valid and the user must type the P/L manually.
+  final double? pnl;
   final double pips;
   final String pipUnit; // 'pips' or 'pts'
-  final double? basePnl;
-  final bool isEstimate;
 
   const PnlResult({
     required this.pnl,
     required this.pips,
     required this.pipUnit,
-    this.basePnl,
-    this.isEstimate = false,
   });
+
+  bool get hasPnl => pnl != null;
 
   String get formattedPips {
     final prefix = pips > 0 ? '+' : '';
@@ -22,163 +24,144 @@ class PnlResult {
 }
 
 class PnlCalculator {
-  /// Determines asset type based on symbol: 'gold', 'indices', 'crypto', or 'forex'
+  /// Contract size of 1 standard forex lot (units of base currency).
+  static const double forexContractSize = 100000.0;
+
+  /// Account currencies that can be treated as USD for P/L purposes.
+  static const Set<String> _usdLike = {'USD', 'USDT', 'USDC'};
+
+  static const Set<String> _knownCurrencies = {
+    'USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD', //
+    'SGD', 'HKD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF',
+    'TRY', 'ZAR', 'MXN', 'CNH', 'CNY', 'THB', 'ILS',
+  };
+
+  static String _normalize(String symbol) =>
+      symbol.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+  /// Determines asset type based on symbol.
+  /// Returns 'gold', 'crypto' (crypto & indices), 'forex', or 'unknown'.
+  /// 'unknown' means the app cannot derive pips/P&L safely (custom symbols,
+  /// silver, exotic instruments ...).
   static String getAssetType(String symbol) {
-    final sym = symbol.toUpperCase().replaceAll('/', '').replaceAll('-', '').trim();
+    final sym = _normalize(symbol);
     if (sym.contains('XAU') || sym.contains('GOLD')) {
       return 'gold';
-    } else if (sym.contains('US30') ||
+    }
+    if (sym.contains('BTC') ||
+        sym.contains('ETH') ||
+        sym.contains('US30') ||
         sym.contains('USTEC') ||
         sym.contains('US500') ||
         sym.contains('NAS') ||
         sym.contains('SPX') ||
         sym.contains('DOW') ||
         sym.contains('NDX') ||
-        sym.contains('DAX') ||
-        sym.contains('GER40') ||
-        sym.contains('UK100')) {
-      return 'indices';
-    } else if (sym.contains('BTC') ||
-        sym.contains('ETH') ||
         sym.contains('SOL') ||
-        sym.contains('BNB') ||
-        sym.contains('XRP') ||
-        sym.contains('DOGE')) {
+        sym.contains('BNB')) {
       return 'crypto';
-    } else {
-      return 'forex';
     }
+    if (_forexPair(sym) != null) return 'forex';
+    return 'unknown';
   }
 
-  /// Returns unit name for price movement ('pips' for Gold & Forex, 'pts' for Indices & Crypto)
-  static String getPipUnit(String symbol) {
-    final type = getAssetType(symbol);
-    return (type == 'indices' || type == 'crypto') ? 'pts' : 'pips';
+  /// Returns [base, quote] for a recognised forex pair, else null.
+  static List<String>? _forexPair(String normalized) {
+    if (normalized.length < 6) return null;
+    final base = normalized.substring(0, 3);
+    final quote = normalized.substring(3, 6);
+    if (!_knownCurrencies.contains(base) || !_knownCurrencies.contains(quote)) {
+      return null;
+    }
+    if (base == quote) return null;
+    return [base, quote];
   }
 
-  /// Single source of truth to calculate raw pips or points movement
-  static double? calculatePips({
+  /// Unit label used for the symbol: 'pts' for crypto/indices, else 'pips'.
+  static String unitFor(String symbol) =>
+      getAssetType(symbol) == 'crypto' ? 'pts' : 'pips';
+
+  /// Pips/points moved in the trade's favour (negative = against).
+  /// Returns null when the symbol is not recognised.
+  static double? pipsFor({
     required String symbol,
     required TradeSide side,
-    required double? entry,
-    required double? exit,
+    required double entry,
+    required double exit,
   }) {
-    if (entry == null || exit == null) return null;
-    final priceDiff = (side == TradeSide.buy) ? (exit - entry) : (entry - exit);
-    final assetType = getAssetType(symbol);
-
-    switch (assetType) {
+    final diff = (side == TradeSide.buy) ? (exit - entry) : (entry - exit);
+    switch (getAssetType(symbol)) {
       case 'gold':
-        // Gold: 1 pip = 0.10 price movement ($1 move = 10 pips)
-        return double.parse((priceDiff * 10.0).toStringAsFixed(1));
-      case 'indices':
+        // 1 pip in gold = $0.10 move (10 pips = $1.00 move)
+        return diff * 10.0;
       case 'crypto':
-        // Indices and Crypto move in whole index / dollar points
-        return double.parse(priceDiff.toStringAsFixed(2));
+        return diff;
       case 'forex':
+        final pair = _forexPair(_normalize(symbol))!;
+        final pipSize = pair[1] == 'JPY' ? 0.01 : 0.0001;
+        return diff / pipSize;
       default:
-        final sym = symbol.toUpperCase();
-        final isJpy = sym.contains('JPY');
-        final pipSize = isJpy ? 0.01 : 0.0001;
-        return double.parse((priceDiff / pipSize).toStringAsFixed(1));
+        return null;
     }
   }
 
-  /// Formats pips or points nicely with prefix and appropriate unit
-  static String formatPips({
-    required String symbol,
-    required TradeSide side,
-    required double? entry,
-    required double? exit,
-  }) {
-    final pips = calculatePips(symbol: symbol, side: side, entry: entry, exit: exit);
-    if (pips == null) return '';
-    final unit = getPipUnit(symbol);
-    final prefix = pips > 0 ? '+' : '';
-    return '$prefix${pips.toStringAsFixed(1)} $unit';
-  }
-
-  /// Calculates PnL and Pips/Points between two prices
+  /// Calculates P&L (account currency) and pips/points between two prices.
+  ///
+  /// Assumptions (standard CFD/spot contract specs):
+  ///  - Forex: 1 lot = 100,000 units of the base currency.
+  ///  - Gold:  1 lot = 100 oz, quoted in USD.
+  ///  - Crypto / indices: 1 point = $1 per 1.0 lot.
+  ///  - The account currency is USD (or USDT/USDC). For any other account
+  ///    currency, [PnlResult.pnl] is null.
   static PnlResult? calculate({
     required String symbol,
     required TradeSide side,
     required double? entry,
     required double? exit,
     required double? lot,
-    double fxRate = 1.0,
+    String accountCurrency = 'USD',
   }) {
     if (entry == null || exit == null || lot == null || lot <= 0) {
       return null;
     }
 
-    final pips = calculatePips(
-      symbol: symbol,
-      side: side,
-      entry: entry,
-      exit: exit,
-    );
+    final pips = pipsFor(symbol: symbol, side: side, entry: entry, exit: exit);
     if (pips == null) return null;
 
-    final priceDiff = (side == TradeSide.buy) ? (exit - entry) : (entry - exit);
-    final assetType = getAssetType(symbol);
-    final pipUnit = getPipUnit(symbol);
+    final diff = (side == TradeSide.buy) ? (exit - entry) : (entry - exit);
+    final unit = unitFor(symbol);
+    final usdAccount = _usdLike.contains(accountCurrency.toUpperCase());
 
-    double basePnl = 0.0;
-    bool isEstimate = false;
-
-    switch (assetType) {
-      case 'gold':
-        // 1 standard lot = 100 oz. $1 move in Gold = $100 per 1.0 lot.
-        basePnl = priceDiff * 100.0 * lot;
-        isEstimate = false;
-        break;
-
-      case 'indices':
-        // 1 standard contract of US30/USTEC/US500 = $1 per 1 point move
-        basePnl = priceDiff * lot;
-        isEstimate = false;
-        break;
-
-      case 'crypto':
-        // 1 coin/contract: 1 point price diff = $1 per 1 lot
-        basePnl = priceDiff * lot;
-        isEstimate = false;
-        break;
-
-      case 'forex':
-      default:
-        final sym = symbol.toUpperCase();
-        final isJpy = sym.contains('JPY');
-        final isUsdQuote = sym.endsWith('USD') || sym.contains('/USD');
-
-        if (isUsdQuote) {
-          // Standard quote in USD (EUR/USD, GBP/USD, etc.): $10 per pip per 1.0 lot
-          basePnl = pips * 10.0 * lot;
-          isEstimate = false;
-        } else if (isJpy && (sym.startsWith('USD') || sym.contains('USD/'))) {
-          // USD/JPY: Pip value in USD = (0.01 / exit_price) * 100,000 * lot
-          final denom = exit > 0 ? exit : (entry > 0 ? entry : 150.0);
-          basePnl = (0.01 / denom) * 100000.0 * lot * pips;
-          isEstimate = true;
-        } else {
-          // Non-USD quoted forex pairs (e.g. EUR/GBP, EUR/JPY)
-          // Approximated at standard $10/pip base and tagged as estimation
-          basePnl = pips * 10.0 * lot;
-          isEstimate = true;
-        }
-        break;
+    double? pnl;
+    if (usdAccount) {
+      switch (getAssetType(symbol)) {
+        case 'gold':
+          pnl = diff * 100.0 * lot;
+          break;
+        case 'crypto':
+          pnl = diff * lot;
+          break;
+        case 'forex':
+          final pair = _forexPair(_normalize(symbol))!;
+          // P/L is first expressed in the quote currency.
+          final inQuote = diff * forexContractSize * lot;
+          if (pair[1] == 'USD') {
+            // EUR/USD, GBP/USD, AUD/USD ... quote is already USD.
+            pnl = inQuote;
+          } else if (pair[0] == 'USD' && exit > 0) {
+            // USD/JPY, USD/CHF, USD/CAD ... convert quote -> USD using the
+            // USD/quote rate at the closing price.
+            pnl = inQuote / exit;
+          } else {
+            // Cross pair (EUR/GBP, GBP/JPY ...): needs an external quote->USD
+            // rate. Do not guess.
+            pnl = null;
+          }
+          break;
+      }
     }
 
-    final rate = (fxRate > 0) ? fxRate : 1.0;
-    final convertedPnl = basePnl * rate;
-
-    return PnlResult(
-      pnl: convertedPnl,
-      pips: pips,
-      pipUnit: pipUnit,
-      basePnl: rate != 1.0 ? basePnl : null,
-      isEstimate: isEstimate,
-    );
+    return PnlResult(pnl: pnl, pips: pips, pipUnit: unit);
   }
 
   /// Calculates planned risk from Entry to Stop Loss
@@ -188,7 +171,7 @@ class PnlCalculator {
     required double? entry,
     required double? sl,
     required double? lot,
-    double fxRate = 1.0,
+    String accountCurrency = 'USD',
   }) {
     if (entry == null || sl == null || lot == null || lot <= 0) return null;
     return calculate(
@@ -197,7 +180,7 @@ class PnlCalculator {
       entry: entry,
       exit: sl,
       lot: lot,
-      fxRate: fxRate,
+      accountCurrency: accountCurrency,
     );
   }
 
@@ -208,7 +191,7 @@ class PnlCalculator {
     required double? entry,
     required double? tp,
     required double? lot,
-    double fxRate = 1.0,
+    String accountCurrency = 'USD',
   }) {
     if (entry == null || tp == null || lot == null || lot <= 0) return null;
     return calculate(
@@ -217,7 +200,7 @@ class PnlCalculator {
       entry: entry,
       exit: tp,
       lot: lot,
-      fxRate: fxRate,
+      accountCurrency: accountCurrency,
     );
   }
 }

@@ -227,7 +227,11 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
 
     // Days calculation for current month
     final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
-    final firstWeekday = _currentMonth.weekday % 7; // 0 = Sunday, 1 = Monday...
+    final weekStartsMonday = provider.settings.weekStartsMonday;
+    // Leading blank cells before day 1 (Sunday-first or Monday-first grid)
+    final firstWeekday = weekStartsMonday
+        ? _currentMonth.weekday - 1
+        : _currentMonth.weekday % 7;
 
     final pnlMap = provider.getDailyPnLMap();
 
@@ -255,9 +259,12 @@ class _PnlCalendarHeatmapState extends State<PnlCalendarHeatmap> {
     final totalActiveDays = winDays + loseDays + beDays;
     final dayWinRate = totalActiveDays > 0 ? (winDays / totalActiveDays) * 100 : 0.0;
 
-    final dayHeaders = lang == 'en'
+    final baseHeaders = lang == 'en'
         ? ['S', 'M', 'T', 'W', 'T', 'F', 'S']
         : ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    final dayHeaders = weekStartsMonday
+        ? [...baseHeaders.sublist(1), baseHeaders.first]
+        : baseHeaders;
 
     return Container(
       padding: const EdgeInsets.all(14),
