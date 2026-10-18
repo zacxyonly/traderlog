@@ -71,10 +71,9 @@ void main() {
   group('TradingAccount Model Tests', () {
     test('Default presets and serialization work as expected', () {
       final defaultList = TradingAccount.defaultAccounts();
-      expect(defaultList.length, 3);
+      expect(defaultList.length, 1);
       expect(defaultList[0].type, 'real');
-      expect(defaultList[1].type, 'demo');
-      expect(defaultList[2].type, 'prop_firm');
+      expect(defaultList[0].name, 'Primary Account');
 
       const customAcc = TradingAccount(
         id: 'acc_funded_50k',
@@ -175,7 +174,8 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
     test('Default settings are populated', () {
       final settings = AppSettings();
       expect(settings.initialCapital, 1000.0);
-      expect(settings.usdToIdrRate, 17998.0);
+      expect(settings.exchangeRate, 16000.0);
+      expect(settings.usdToIdrRate, 16000.0);
       expect(settings.traderName, 'TraderLog');
       expect(settings.languageCode, 'id');
       expect(settings.accountCurrency, 'USD');
@@ -183,7 +183,7 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(settings.activeAccountId, 'acc_real');
       expect(settings.pinCode, isNull);
       expect(settings.isBiometricEnabled, false);
-      expect(settings.accounts.length, 3);
+      expect(settings.accounts.length, 1);
       expect(settings.symbols.contains('XAU/USD'), true);
       expect(settings.symbols.contains('BTC/USD'), true);
     });
@@ -191,7 +191,7 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
     test('AppSettings serialization supports currencies, traderName, accounts and security', () {
       final settings = AppSettings(
         initialCapital: 5000.0,
-        usdToIdrRate: 16500.0,
+        exchangeRate: 16500.0,
         traderName: 'TraderPro',
         languageCode: 'en',
         accountCurrency: 'USDC',
@@ -210,6 +210,7 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
       expect(fromMap.accountCurrency, 'USDC');
       expect(fromMap.exchangeCurrency, 'IDR');
       expect(fromMap.initialCapital, 5000.0);
+      expect(fromMap.exchangeRate, 16500.0);
       expect(fromMap.usdToIdrRate, 16500.0);
       expect(fromMap.themeMode, ThemeMode.dark);
       expect(fromMap.activeAccountId, 'acc_demo');
