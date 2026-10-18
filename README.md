@@ -36,19 +36,17 @@
 </p>
 
 <p align="center">
-  🌐 <strong>Language / Bahasa:</strong>
-  <a href="#-english">English</a> | <a href="#-bahasa-indonesia">Bahasa Indonesia</a>
+  🌐 <strong>Language:</strong>
+  <strong>English 🇬🇧</strong> | <a href="README_ID.md">Bahasa Indonesia 🇮🇩</a>
 </p>
 
 ---
 
-# 🇬🇧 English
-
 ## 📖 Overview
 
-**TraderLog** is a high-performance Android trading journal built for traders across Forex, Commodities (Gold/XAUUSD), Crypto, Stocks, and Indices who prioritize psychological discipline and statistical validation of their trading edge.
+**TraderLog** is a high-performance Android trading journal engineered for traders across Forex, Commodities (Gold/XAUUSD), Crypto, Stocks, and Indices who prioritize psychological discipline and statistical validation of their trading edge.
 
-Engineered with **Flutter** and local **SQLite (SQFlite)**, TraderLog guarantees 100% data privacy and zero latency: **no cloud tracking, no mandatory sign-ups, offline-first architecture, and complete data ownership**.
+Built with **Flutter** and local **SQLite (SQFlite)**, TraderLog guarantees 100% data sovereignty and zero latency: **no third-party cloud tracking, no mandatory sign-ups, offline-first architecture, and complete data privacy**.
 
 ---
 
@@ -70,7 +68,7 @@ Engineered with **Flutter** and local **SQLite (SQFlite)**, TraderLog guarantees
 
 ### 3. 🛡️ Portfolio, Multi-Account & Security (Settings Tab)
 * **👥 Multi-Account Portfolio Switcher**: Separate records seamlessly between **Real**, **Demo**, and **Prop Firm / Evaluation** accounts, or create custom accounts with independent starting capital.
-* **🔐 Salted HMAC-SHA256 PIN & Biometrics**: Screen lock powered by a 4-digit PIN stored as a salted, iterated HMAC-SHA256 hash, alongside native Android biometric authentication (`local_auth`).
+* **🔐 Salted HMAC-SHA256 PIN & Biometrics**: Screen lock powered by a 4-digit PIN stored as a salted, iterated HMAC-SHA256 hash (via `PinHasher`), alongside native Android biometric authentication (`local_auth`).
 * **📦 Full ZIP Backup & Restore**: Export an entire ZIP archive containing your SQLite database (`traderlog.db`), all trade chart screenshots, and manifest metadata. Restore effortlessly across devices or back up to Google Drive.
 * **💱 Multi-Currency & Live Exchange Rates**: Support for account currencies (USD, IDR, USDC, USDT, EUR, GBP, JPY, SGD, AUD) with real-time exchange rate sync via Open FX Market API.
 * **🌐 Complete Bilingual Support (EN & ID)**: Instant toggle between English 🇬🇧 and Bahasa Indonesia 🇮🇩 across all dialogs, analytics, and navigation.
@@ -106,7 +104,7 @@ Engineered with **Flutter** and local **SQLite (SQFlite)**, TraderLog guarantees
 * **Framework**: [Flutter](https://flutter.dev) (v3.24.5 - Stable Channel)
 * **Language**: [Dart](https://dart.dev) (v3.5.4)
 * **Local Database**: [sqflite](https://pub.dev/packages/sqflite) (SQLite native engine with schema migrations)
-* **Security & Cryptography**: [crypto](https://pub.dev/packages/crypto) (HMAC-SHA256 PIN hashing) & [local_auth](https://pub.dev/packages/local_auth) (Biometric Fingerprint / Face prompt)
+* **Security & Cryptography**: [crypto](https://pub.dev/packages/crypto) (Salted HMAC-SHA256 PIN hashing) & [local_auth](https://pub.dev/packages/local_auth) (Biometric Fingerprint / Face prompt)
 * **State Management**: [provider](https://pub.dev/packages/provider) (Reactive MVVM architecture)
 * **Full Backup Archive**: [archive](https://pub.dev/packages/archive) (ZIP package generation & extraction)
 * **Media & File Picker**: [image_picker](https://pub.dev/packages/image_picker) & [file_picker](https://pub.dev/packages/file_picker)
@@ -174,7 +172,8 @@ traderlog/
 │   └── generate_keystore.sh       # Release keystore generation script for local & CI signing
 ├── pubspec.yaml                   # Flutter package manifest (v1.0.0+1)
 ├── LICENSE                        # MIT Open Source License
-└── README.md                      # Project documentation
+├── README.md                      # English documentation (default)
+└── README_ID.md                   # Indonesian documentation
 ```
 
 ---
@@ -220,7 +219,7 @@ The compiled APK will be located at:
 
 ## 🔑 APK Release Signing
 
-Release keystores are **never stored in the repository**. Generate a private keystore on your local machine:
+Release keystores are **never committed to the repository**. Generate a private keystore on your local machine:
 
 ```bash
 bash tools/generate_keystore.sh          # Outputs to: ~/traderlog-signing/
@@ -236,6 +235,18 @@ The script outputs `traderlog-release.jks` and prints values for **GitHub → Se
 | `TRADERLOG_KEY_PASSWORD` | Key alias password |
 
 For local release signing, copy the generated `key.properties` to `android/key.properties` (git-ignored).
+
+---
+
+## ⚙️ CI Compilation with GitHub Actions
+
+The GitHub Actions workflow is configured for **manual on-demand runs (workflow_dispatch)**:
+
+1. Open repository on GitHub: [zacxyonly/traderlog](https://github.com/zacxyonly/traderlog).
+2. Click the **Actions** tab.
+3. In the left panel, select **Build Android APK**.
+4. Click **Run workflow**, choose branch `main` (optionally provide a release tag, e.g. `v1.0.0`), and run.
+5. GitHub will compile the APK, verify signature integrity, attach the file to **Artifacts**, and automatically create a **GitHub Release** when a release tag is provided.
 
 ---
 
@@ -264,156 +275,31 @@ No,Date,Symbol,Side,Entry,SL,TP,Lot,RR,Result,PL,Equity,Why,Note
 
 ---
 
-<br />
+## 🛡️ Security & Privacy Guarantees
 
-# 🇮🇩 Bahasa Indonesia
-
-## 📖 Ringkasan
-
-**TraderLog** adalah aplikasi jurnal trading Android berkecepatan tinggi yang dirancang khusus untuk trader Forex, Komoditas (Gold/XAUUSD), Saham, Indeks, dan Crypto yang mengutamakan disiplin psikologi serta pembuktian statistik atas trading rule mereka.
-
-Dibangun dengan arsitektur modern **Flutter** dan penyimpanan lokal **SQLite (SQFlite)**, TraderLog menjamin kerahasiaan 100% data akun dan transaksi Anda: **tanpa cloud tracking pihak ketiga, tanpa registrasi akun, arsitektur offline-first, dan kendali data penuh di tangan Anda**.
+- **Zero Telemetry**: The app does not transmit analytics, tracking tags, or personal logs to external servers.
+- **Offline Storage**: The SQLite database resides inside the app's local internal storage sandbox.
+- **Biometric & PIN Lock**: Protected via 4-digit PIN stored as a salted, iterated HMAC-SHA256 digest (`PinHasher`) and native Android BiometricPrompt API.
+- **No Google Auto-Backup**: `android:allowBackup="false"`, ensuring database and PIN hashes are never sent to unencrypted Android backup clouds.
+- **Data Sovereignty**: Full control over journal data at any time via CSV export and full ZIP archives.
 
 ---
 
-## 🌟 Fitur Unggulan (v1.0.0)
+## 🤝 Contributing
 
-### 1. 📊 Analisis & Evaluasi (Tab Ringkasan)
-* **📈 Grafik Equity Curve Interaktif**: Visualisasi garis pertumbuhan modal akumulatif yang dinamis dengan baseline modal awal, penanda titik tertinggi (*All-Time Peak*), garis *scrub* sentuh real-time, dan tooltip info PnL per trade.
-* **🎯 Metrik Inti Kuantitatif Otomatis**:
-  - **Win Rate (%)** & Rasio Menang/Kalah/BE.
-  - **Profit Factor (PF)** (Gross Profit / Gross Loss).
-  - **Rata-rata R:R Aktual (Payoff Ratio)** (Rata-rata profit transaksi menang dibanding rata-rata loss transaksi kalah).
-  - **Max Drawdown** (Penurunan saldo terdalam dari puncak, ditampilkan dalam % dan nominal mata uang).
-* **🗓️ Kalender PnL (Heatmap)**: Tampilan kisi kalender bulanan berwarna hijau (*Green Day / Profit*) dan merah (*Red Day / Loss*) per tanggal untuk memantau konsistensi harian secara visual. Dilengkapi bar ringkasan bulanan dan *bottom sheet* detail transaksi saat tanggal disentuh.
-
-### 2. 📝 Optimalisasi Form Pencatatan (Tab Jurnal)
-* **📸 Dua Slot Gambar (Before & After)**: Memisahkan foto analisis sebelum entry (*Setup*) dan sesudah trade selesai (*Outcome / Evaluasi Reaksi Harga*) untuk review trading yang objektif dan mendalam.
-* **🏷️ Tag Cepat Setup & Emosi (Chips)**: Tombol pilihan sekali-klik untuk konfirmasi teknikal (*BOS, CHOCH, FVG, Liquidity, Breakout, SnR, Trendline*) serta kondisi psikologi trader (*Disiplin, FOMO, Revenge Trade, Overlot, Early Exit, Overtrading*).
-* **🧮 Kalkulator PnL & Nilai Pip Otomatis**: Tombol kalkulator bantu untuk menghitung estimasi pip selisih harga dan profit/loss berdasarkan instrumen (Forex USD-quote, Gold/XAU, Crypto/Index), posisi (Buy/Sell), lot size, entry, dan exit/TP/SL, lengkap dengan tombol 1-klik untuk memasukkan hasil langsung ke form.
-
-### 3. 🛡️ Portofolio, Multi-Akun & Keamanan (Tab Atur)
-* **👥 Multi-Akun (Switcher)**: Kemampuan memisahkan catatan transaksi antara akun **Real**, **Demo**, dan **Evaluasi / Prop Firm**, atau membuat akun kustom. Dilengkapi *switcher* 1-tap di kartu saldo utama maupun di pengaturan.
-* **🔐 Kunci Biometrik & PIN 4-Digit Salted SHA-256**: Pengamanan layar pembuka (*SecurityLockScreen*) dengan 4-digit PIN yang disimpan menggunakan algoritma hash *iterated salted* HMAC-SHA256 (melalui `PinHasher`) serta sensor sidik jari perangkat via `local_auth`.
-* **📦 Cadangan & Pemulihan Lengkap (ZIP)**: Satu file ZIP utuh berisi semua transaksi, screenshot chart analisis, data akun, dan preferensi pengaturan. Simpan langsung ke penyimpanan internal atau unggah ke **Google Drive**.
-* **💱 Kurs Otomatis & Multi-Currency**: Dukungan mata uang akun (USD, IDR, USDC, USDT, EUR, GBP, JPY, SGD, AUD) serta sinkronisasi kurs live otomatis via open FX market API.
-* **🌐 Bilingual Lengkap (ID & EN)**: Beralih instan antara Bahasa Indonesia 🇮🇩 dan English 🇬🇧 di seluruh menu, grafik, kalender, dan pesan dialog.
+Contributions, bug reports, and suggestions are welcome!
+1. **Fork** this repository.
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m "feat: Add AmazingFeature"`).
+4. Push to your branch (`git push origin feature/AmazingFeature`).
+5. Open a **Pull Request**.
 
 ---
 
-## 🛠️ Arsitektur & Teknologi
+## 📜 License
 
-* **Framework**: [Flutter](https://flutter.dev) (v3.24.5 - Channel Stable)
-* **Programming Language**: [Dart](https://dart.dev) (v3.5.4)
-* **Local Database**: [sqflite](https://pub.dev/packages/sqflite) dengan engine SQLite native & sistem migrasi tabel
-* **Keamanan & Kriptografi**: [crypto](https://pub.dev/packages/crypto) (Salted HMAC-SHA256 hashing) & [local_auth](https://pub.dev/packages/local_auth) (Sidik Jari / Biometrik Android)
-* **State Management**: [provider](https://pub.dev/packages/provider) (Arsitektur reaktif)
-* **Manajemen Arsip ZIP**: [archive](https://pub.dev/packages/archive) (Kompresi & ekstraksi cadangan utuh)
-* **File System & Sharing**: [share_plus](https://pub.dev/packages/share_plus) & [file_picker](https://pub.dev/packages/file_picker)
-* **Media Capture**: [image_picker](https://pub.dev/packages/image_picker)
-* **CI / CD Pipeline**: GitHub Actions (`workflow_dispatch` dengan verifikasi keystore rilis otomatis)
-
----
-
-## 🚀 Panduan Instalasi & Pengembangan Lokal
-
-### 1. Kebutuhan Sistem
-Pastikan lingkungan pengembangan Anda telah terpasang:
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (versi 3.24.5 disarankan)
-- [Android Studio](https://developer.android.com/studio) dengan Android SDK (API Level 34)
-- Java Development Kit (JDK 17)
-
-### 2. Kloning Repositori
-```bash
-git clone https://github.com/zacxyonly/traderlog.git
-cd traderlog
-```
-
-### 3. Pasang Dependensi
-```bash
-flutter pub get
-```
-
-### 4. Menjalankan Unit Test & Analisis Kode
-Verifikasi integritas logika kalkulasi, enkripsi PIN, dan cadangan data:
-```bash
-flutter test
-flutter analyze
-```
-
-### 5. Menjalankan Aplikasi di HP / Emulator
-```bash
-flutter run
-```
-
-### 6. Kompilasi APK Rilis Sendiri
-```bash
-flutter build apk --release
-```
-Hasil file APK siap install akan berada di direktori:
-`build/app/outputs/flutter-apk/app-release.apk`
-
----
-
-## 🔑 Penandatanganan APK Rilis (Signing)
-
-Keystore rilis **tidak pernah disimpan di repositori**. Buat sekali di komputer Anda dengan skrip otomatis:
-
-```bash
-bash tools/generate_keystore.sh          # Hasil direktori: ~/traderlog-signing/
-```
-
-Skrip tersebut menghasilkan file `traderlog-release.jks` (RSA 4096, password acak kuat) dan mencetak 4 konfigurasi untuk dimasukkan ke **GitHub → Settings → Secrets and variables → Actions**:
-
-| Secret | Keterangan |
-|---|---|
-| `TRADERLOG_KEYSTORE_BASE64` | String isi berkas `.jks` dalam format base64 |
-| `TRADERLOG_KEYSTORE_PASSWORD` | Password keystore |
-| `TRADERLOG_KEY_ALIAS` | `traderlog` |
-| `TRADERLOG_KEY_PASSWORD` | Password alias kunci |
-
-Untuk build rilis di lokal komputer Anda, salin `key.properties` hasil skrip ke dalam `android/key.properties` (sudah dilindungi *.gitignore*).
-
----
-
-## 🗜️ Format Cadangan ZIP
-
-```
-TraderLog_Backup_yyyyMMdd_HHmm.zip
-├── manifest.json     # Penanda identitas aplikasi, versi format, dan tanggal pembuatan
-├── data.json         # Transaksi trade, daftar akun portofolio, dan preferensi pengaturan
-└── images/           # Seluruh foto screenshot chart analisis (Before & After)
-```
-
-*Catatan: PIN keamanan dan status biometrik sengaja tidak disertakan dalam arsip cadangan untuk mencegah kebocoran otentikasi saat berkas cadangan disimpan di cloud publik.*
-
----
-
-## 🛡️ Jaminan Privasi & Keamanan
-
-- **Zero Telemetry**: Aplikasi tidak mengirimkan analitik, pelacak, atau data apa pun ke server luar.
-- **Offline Storage**: Database SQLite tersimpan di sandbox aplikasi lokal pada memori internal perangkat Android Anda.
-- **Biometric & PIN Lock**: Akses jurnal diamankan dengan 4-digit PIN dan sensor sidik jari lokal melalui Android BiometricPrompt API. PIN disimpan sebagai hash ber-salt HMAC-SHA256 (bukan teks asli).
-- **Tanpa Auto-Backup Google**: `android:allowBackup="false"`, sehingga database dan hash PIN tidak ikut ke cadangan otomatis Android/Google yang tidak terenkripsi.
-- **Full Ownership**: Anda memegang kendali 100% atas data jurnal Anda kapan pun melalui fitur ekspor CSV dan pencadangan ZIP mandiri.
-
----
-
-## 🤝 Kontribusi
-
-Kontribusi, pelaporan bug, dan saran fitur sangat diapresiasi!
-1. Lakukan **Fork** pada repositori ini.
-2. Buat branch fitur baru (`git checkout -b feature/FiturKeren`).
-3. Commit perubahan Anda (`git commit -m "feat: Menambahkan fitur baru"`).
-4. Push branch ke repository Anda (`git push origin feature/FiturKeren`).
-5. Buat **Pull Request**.
-
----
-
-## 📜 Lisensi
-
-Proyek ini dilisensikan di bawah lisensi **MIT**. Silakan tinjau berkas [LICENSE](LICENSE) untuk informasi lebih lanjut.
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
 <p align="center">
-  Dibuat dengan ❤️ oleh <a href="https://github.com/zacxyonly"><strong>zacxyonly</strong></a>
+  Crafted with ❤️ by <a href="https://github.com/zacxyonly"><strong>zacxyonly</strong></a>
 </p>
